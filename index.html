@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>論理回路のしくみ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDGothic:wght@700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF3F7; --grid:rgba(40,90,140,.07); --paper:#FFFFFF; --ink:#1D2B3A; --muted:#5B6B7D;
+  --line:#C8D5E1; --wire:#6F7F91;
+  --in:#D5EEF7; --in-edge:#4FA3C4; --out:#FFE2C4; --out-edge:#DD8433;
+  --sig:#EBA100; --glow:rgba(255,196,0,.45);
+  --ok:#11826A; --ng:#C23B2E; --focus:#2B6CB0;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#101922; --grid:rgba(120,170,220,.06); --paper:#172431; --ink:#E2E9F0; --muted:#9AAABA;
+    --line:#2D3D4D; --wire:#7F90A2;
+    --in:#16394A; --in-edge:#5DB6D6; --out:#43301D; --out-edge:#EE9A45;
+    --sig:#FFC23A; --glow:rgba(255,194,58,.35);
+    --ok:#3DC49B; --ng:#F2735F; --focus:#7FB4F0; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101922; --grid:rgba(120,170,220,.06); --paper:#172431; --ink:#E2E9F0; --muted:#9AAABA;
+  --line:#2D3D4D; --wire:#7F90A2;
+  --in:#16394A; --in-edge:#5DB6D6; --out:#43301D; --out-edge:#EE9A45;
+  --sig:#FFC23A; --glow:rgba(255,194,58,.35);
+  --ok:#3DC49B; --ng:#F2735F; --focus:#7FB4F0; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0;min-height:100%;background:var(--bg);color:var(--ink);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px;
+  font-family:"BIZ UDPGothic","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",sans-serif;
+  font-size:16px;line-height:1.7;
+}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+
+
+/* top screen */
+body:not(.is-top) #top{display:none}
+body.is-top header,body.is-top main,body.is-top .foot,body.is-top .bar{display:none}
+#top{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:32px 20px}
+.top-in{width:100%;max-width:760px;text-align:center}
+.top-lead{margin-left:auto!important;margin-right:auto!important}
+.top-sub{margin:0 0 10px;color:var(--muted);font-weight:700;letter-spacing:.06em}
+.top-ttl{margin:0;font-size:clamp(1.9rem,7vw,3.6rem);line-height:1.2;letter-spacing:.02em;white-space:nowrap}
+.top-lead{margin:20px 0 48px;font-size:1.05rem;max-width:40em}
+@media (max-width:720px){.pc-br{display:none}}
+.btn.start{font-size:1.25rem;padding:14px 44px;border-radius:12px}
+/* カーソルを合わせる（キーボードで選ぶ）と少し大きくなり、離れると元の大きさに戻る */
+.btn.start{transition:transform .18s ease}
+.btn.start:hover,.btn.start:focus-visible{transform:scale(1.08)}
+.top-note{margin:12px 0 0;color:var(--muted);font-size:.9rem}
+
+/* header */
+header{padding:18px 0 6px}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand h1{margin:0;font-size:1.5rem;letter-spacing:.04em;cursor:default;user-select:none}
+.brand small{color:var(--muted)}
+.rail{display:flex;align-items:center;overflow-x:auto;padding:14px 4px 12px;gap:0;scrollbar-width:none}
+.rail::-webkit-scrollbar{display:none}
+.rail .seg-w{flex:1 0 6px;min-width:6px;height:3px;background:var(--line)}
+.rail .seg-w.lit{background:var(--sig)}
+.node{flex:0 0 auto;min-width:32px;height:32px;padding:0 8px;border-radius:16px;border:2px solid var(--line);
+  background:var(--paper);display:grid;place-items:center;font-weight:700;font-size:.85rem;cursor:pointer;white-space:nowrap}
+.node.done{background:var(--sig);border-color:var(--sig);color:#2A1D00}
+.node.cur{border-color:var(--ink);box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--ink)}
+.node:disabled{opacity:.4;cursor:not-allowed}
+
+/* main */
+main{padding:6px 0 24px}
+.sheet{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:22px 22px 26px}
+.ttl{display:flex;align-items:center;gap:14px;margin:0 0 6px}
+.ttl .no{font-family:"BIZ UDGothic",monospace;font-weight:700;font-size:2.4rem;line-height:1;color:var(--sig);
+  min-width:1.2em}
+.ttl .no:empty{display:none}
+.ttl h2{margin:0;font-size:1.35rem;line-height:1.35}
+.ttl .sub{display:block;font-size:.9rem;color:var(--muted);font-weight:400}
+.howto{margin:6px 0 18px;padding:0;list-style:none;color:var(--ink)}
+.howto li{padding-left:1.2em;position:relative}
+.howto li::before{content:"";position:absolute;left:.2em;top:.75em;width:.45em;height:.45em;border-radius:50%;background:var(--in-edge)}
+.cols{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+p{margin:.4em 0}
+.note{color:var(--muted);font-size:.9rem}
+
+/* figures */
+.fig{position:relative;width:100%}
+.fig svg{display:block;width:100%;height:auto;overflow:visible}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+.scroll .fig{min-width:640px}
+.scroll .fig.wide{min-width:820px}
+.t.big{font-size:26px}
+.wide .ts{font-size:17px}
+.hint-sc{display:none;text-align:center;font-size:.8rem;color:var(--muted);margin:2px 0 0}
+@media (max-width:700px){.hint-sc{display:block}}
+.ov{position:absolute;transform:translate(-50%,-50%)}
+.cap{font-size:.85rem;color:var(--muted);margin:4px 0 0;text-align:center}
+.w{fill:none;stroke:var(--wire);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.w.on{stroke:var(--sig);stroke-width:3.6}
+.g{fill:var(--paper);stroke:var(--ink);stroke-width:2.2;stroke-linejoin:round}
+.dot{fill:var(--ink)} .dot.on{fill:var(--sig)}
+.t{fill:var(--ink);font-size:15px;font-family:inherit;font-weight:700}
+.ts{fill:var(--muted);font-size:12px;font-family:inherit}
+.blk2{fill:var(--paper);stroke:var(--ink);stroke-width:2.4}
+.t.port{font-size:22px}
+.viewsw{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0 6px}
+.blk{fill:var(--paper);stroke:var(--ink);stroke-width:2;stroke-dasharray:6 4}
+.bat-l{stroke:var(--ink);stroke-width:3}.bat-s{stroke:var(--ink);stroke-width:7}
+.bulb{fill:var(--paper);stroke:var(--ink);stroke-width:2}
+.fil{fill:none;stroke:var(--ink);stroke-width:1.6}
+.glow{fill:var(--glow);opacity:0;transition:opacity .25s}
+.lamp.lit .glow{opacity:1}.lamp.lit .bulb{fill:var(--sig)}
+.sw{stroke:var(--ink);stroke-width:3;stroke-linecap:round;transition:transform .18s}
+.hotsw{cursor:pointer}
+
+/* value boxes */
+.box{min-width:2.7rem;height:2.5rem;padding:0 .4rem;display:grid;place-items:center;border-radius:7px;
+  font-family:"BIZ UDGothic",monospace;font-weight:700;font-size:1.3rem;line-height:1}
+.box.in{background:var(--in);border:2px solid var(--in-edge);cursor:pointer}
+.box.in:hover{filter:brightness(1.04)}
+select.dd{-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%235B6B7D' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .5rem center;background-size:.7rem auto;text-align:center;text-align-last:center;height:2.5rem;min-width:4.4rem;padding:0 1.5rem;border:2px solid var(--in-edge);background-color:var(--in);border-radius:7px;font-family:"BIZ UDGothic",monospace;font-weight:700;font-size:1.2rem;color:var(--ink);cursor:pointer}
+.ddw{position:relative;display:inline-block;vertical-align:middle}
+select.dd-name{min-width:8.5rem;font-family:inherit;font-size:1.05rem}
+.gates3 figcaption{display:flex;justify-content:center;align-items:center;gap:4px;margin-top:6px}
+/* リストの中は空白、未選択のときだけ枠の上に「？」を重ねて表示 */
+/* 表示位置：四角の左端から▽の左側までの中央（▽は右端から約1.2remの幅） */
+.ddw::after{content:attr(data-v);position:absolute;left:calc(50% - .6rem);top:50%;transform:translate(-50%,-50%);pointer-events:none;color:var(--ink);font-family:"BIZ UDGothic",monospace;font-weight:700;font-size:1.2rem;white-space:nowrap}
+.ddw.nm::after{font-family:"BIZ UDPGothic","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",sans-serif;font-size:1.05rem}
+.ddw.blank::after{color:var(--muted);font-family:"BIZ UDGothic",monospace;font-size:1.15rem}
+select.dd{color:transparent!important}
+select.dd:-moz-focusring{color:transparent;text-shadow:none}
+select.dd option{color:var(--ink);background:var(--paper);text-align:left}
+.box.out{background:var(--out);border:2px solid var(--out-edge)}
+.box.blank{color:var(--muted);font-size:1rem}
+.lbl{font-weight:700;font-size:.9rem;text-align:center;line-height:1.2;white-space:nowrap}
+.io{display:flex;align-items:center;gap:6px}
+
+/* segmented 0/1 */
+.seg{display:inline-flex;border:2px solid var(--in-edge);border-radius:8px;overflow:hidden;background:var(--in);vertical-align:middle}
+.seg button{border:0;background:transparent;width:2.3rem;height:2.2rem;cursor:pointer;font-family:"BIZ UDGothic",monospace;font-weight:700;font-size:1.1rem;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--in-edge)}
+.seg button[aria-pressed="true"]{background:var(--in-edge);color:#fff}
+.mk{display:inline-block;width:1.6em;text-align:center;font-weight:700;font-size:1.25rem}
+.mk.ok{color:var(--ok)}.mk.ng{color:var(--ng)}
+
+/* tables */
+table.tt{border-collapse:collapse;margin:0 auto}
+.tt th,.tt td{border:1px solid var(--line);padding:4px 10px;text-align:center}
+.tt th{background:color-mix(in srgb,var(--line) 35%,transparent);font-size:.9rem}
+.tt td.v{font-family:"BIZ UDGothic",monospace;font-weight:700}
+.tt td.m{border:0;padding:0 2px;min-width:2em}
+.tt.sm td,.tt.sm th{padding:2px 6px}
+/* 真理値表の列幅をそろえる（解答ボックスが入る幅） */
+.tt th:not(.m),.tt td:not(.m){width:5.6rem;min-width:5.6rem}
+.tt.sm th:not(.m),.tt.sm td:not(.m){width:3.4rem;min-width:3.4rem}
+.tt th{padding-left:2px;padding-right:2px;line-height:1.35}
+.tt .cyc{min-width:2.3rem;height:2.1rem;font-size:1.1rem}
+.tt input.txt::placeholder{color:var(--muted);opacity:1}
+/* 入力中（カーソルがあるとき）は「？」を隠す */
+.tt input.txt:focus::placeholder{color:transparent}
+.tt input.txt{width:4.2rem;height:2.2rem;text-align:center;border:2px solid var(--in-edge);background:var(--in);border-radius:7px;font-family:"BIZ UDGothic",monospace;font-weight:700;font-size:1.1rem}
+.tblgrid{display:flex;gap:28px;flex-wrap:wrap;justify-content:center}
+
+/* problem cards */
+.probs{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+.probs.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:640px){.probs.two{grid-template-columns:1fr}}
+.probs.two .prob svg{max-width:300px}
+/* Step4以降は○×を出さない */
+.nomark .m{display:none}
+.prob{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px}
+.prob .qn{font-weight:700;color:var(--muted);font-size:.9rem}
+.prob svg{width:100%;height:auto;display:block}
+
+/* message */
+.msg{margin:18px 0 0;padding:12px 16px;border-radius:10px;border:2px solid var(--line);font-weight:700}
+.msg.good{border-color:var(--ok);color:var(--ok)}
+.msg.bad{border-color:var(--ng);color:var(--ng)}
+
+/* summary step10 */
+.sumrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:14px;align-items:center;border-top:1px solid var(--line);padding:14px 0}
+.sumrow:first-of-type{border-top:0}
+.sumrow h3{margin:0;font-size:1.05rem}
+.sumrow .expr{font-family:"BIZ UDGothic",monospace;color:var(--muted);font-size:.95rem}
+.s10sel+.s10sel{margin-top:10px}
+.sumrow select{width:100%;max-width:22rem;padding:8px 10px;border:2px solid var(--in-edge);background:var(--in);border-radius:8px}
+@media (max-width:640px){.sumrow{grid-template-columns:1fr}}
+
+/* intro */
+.gates3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}
+.gates3 figure{margin:0;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+.gates3 figcaption{font-weight:700;font-size:1.1rem}
+.legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.legend span.sw-c{display:inline-block;width:1.4rem;height:1.1rem;border-radius:4px;vertical-align:-3px;margin-right:4px}
+.try{margin-top:16px;padding:14px;border:2px dashed var(--in-edge);border-radius:10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+
+/* footer nav */
+.bar{position:sticky;bottom:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-top:1px solid var(--line);
+  padding:10px 0 calc(10px + env(safe-area-inset-bottom,0px))}
+.bar .wrap{display:flex;align-items:center;gap:10px;flex-wrap:nowrap}
+.status{flex:1 1 auto;min-width:0;text-align:center;font-size:1.15rem;font-weight:700;color:var(--muted);line-height:1.35}
+.btn{white-space:nowrap}
+@media (max-width:520px){.btn{padding:8px 9px;font-size:.88rem}.status{font-size:1rem;min-width:4.8em}.bar .wrap{gap:8px}}
+.cols .fig{max-width:520px}
+.status.clear{color:var(--ok)}
+.btn{border:2px solid var(--ink);background:var(--paper);border-radius:10px;padding:8px 16px;font-weight:700;cursor:pointer}
+.btn.primary{background:var(--ink);color:var(--paper)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.ready{animation:pulse 1.2s ease-out 1}
+@keyframes pulse{0%{box-shadow:0 0 0 0 var(--glow)}100%{box-shadow:0 0 0 14px transparent}}
+.foot{display:flex;justify-content:flex-end;padding:0 0 18px}
+.linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;font-size:.85rem}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* はじめに：スマホでは縦1列 */
+@media (max-width:640px){.gates3{grid-template-columns:1fr}.gates3 svg{max-width:200px!important;margin:0 auto}}
+/* 見出し「論理回路のしくみ」の上の余白 */
+header.wrap{padding-top:26px}
+/* 発展3〜9 */
+.sub3{margin:22px 0 4px;font-size:1.1rem;border-left:5px solid var(--ink);padding-left:10px}
+.pair{display:flex;flex-wrap:wrap;gap:18px 28px;align-items:center;margin:8px 0}
+.pair>div:first-child{flex:1 1 360px;min-width:0;max-width:600px}
+.pair.pw>div:first-child{max-width:none}
+.pair>div:last-child{flex:0 0 auto}
+.sfig svg{width:100%}
+.whichg{display:flex;align-items:center;gap:8px;margin:4px 0 8px;font-weight:700}
+.tt.tgt td,.tt.tgt th{background:color-mix(in srgb,var(--out) 45%,transparent)}
+.bld{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:6px 0 10px;background:var(--paper)}
+.bld-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px}
+.chip-g{display:inline-flex;align-items:center;gap:6px;border:2px solid var(--in-edge);background:var(--in);border-radius:10px;padding:3px 10px 3px 6px;cursor:grab;touch-action:none;font-weight:700;user-select:none;-webkit-user-select:none}
+.chip-g svg{width:58px;height:30px;pointer-events:none}
+.chip-g span{pointer-events:none}
+.chip-g.sel{background:var(--sig);border-color:var(--sig);color:#2A1D00}
+.btn.sm{padding:4px 12px;font-size:.9rem}
+.bsvg{-webkit-tap-highlight-color:transparent;touch-action:pan-x pan-y;user-select:none;-webkit-user-select:none}
+.bsvg [data-b="pin"],.bsvg [data-b="slot"]{touch-action:none;cursor:pointer}
+.pin{fill:var(--paper);stroke:var(--in-edge);stroke-width:3}
+.pin.sel{fill:var(--sig);stroke:var(--sig)}
+.pinhit{fill:transparent}
+[data-b="pin"]:hover .pin{fill:var(--in)}
+.slot{fill:transparent;stroke:var(--line);stroke-width:2;stroke-dasharray:7 5}
+.slot.hot{stroke:var(--sig);fill:color-mix(in srgb,var(--sig) 10%,transparent)}
+.wirehit{fill:none;stroke:transparent;stroke-width:16;cursor:pointer}
+.delb{cursor:pointer}.delb circle{fill:var(--paper);stroke:var(--ng);stroke-width:2}.delb text{fill:var(--ng);font-weight:700;font-size:16px}
+.tg{cursor:pointer}.tg rect{fill:var(--in);stroke:var(--in-edge);stroke-width:2}.tg text,.ob text{fill:var(--ink);font-family:"BIZ UDGothic",monospace;font-weight:700;font-size:20px}
+.ob rect{fill:var(--out);stroke:var(--out-edge);stroke-width:2}
+.tmpw{fill:none;stroke:var(--sig);stroke-width:3;stroke-dasharray:6 4;pointer-events:none}
+.ghost{position:fixed;z-index:60;pointer-events:none;transform:translate(-50%,-50%);background:var(--sig);color:#2A1D00;font-weight:700;padding:6px 12px;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.addcol{display:grid;grid-template-columns:repeat(5,2.6em);text-align:center;font-family:"BIZ UDGothic",monospace;font-weight:700;margin:6px 0 14px;row-gap:2px}
+.addcol .ul{border-top:2px solid var(--ink);padding-top:2px}
+/* Step6〜8：回路図の位置（高さ）をそろえる */
+.howto.ha{min-height:calc(3 * 1.7em + 4px)}
+@media (max-width:900px){.howto.ha{min-height:calc(4 * 1.7em + 4px)}}
+@media (max-width:560px){.howto.ha{min-height:calc(8 * 1.7em + 4px)}}
+.node.sq{border-radius:6px;min-width:30px;padding:0 6px}
+.railtag{flex:0 0 auto;font-weight:700;font-size:.8rem;color:var(--ink);border:2px solid var(--ink);border-radius:6px;padding:1px 6px;background:var(--paper);white-space:nowrap}
+/* タブレット幅でも進捗バーが1行に収まるよう小さくする（スマホは横にスワイプ） */
+@media (max-width:900px){.rail .seg-w{min-width:2px;flex-basis:2px}.node{min-width:28px;height:28px;padding:0 6px;font-size:.78rem}.node.sq{min-width:26px;padding:0 4px}.railtag{font-size:.72rem;padding:1px 4px}}
+select.dd-ff{min-width:5.2rem;font-family:inherit;font-size:1.05rem}
+.tt.ff th:not(.m),.tt.ff td:not(.m){width:7rem;min-width:7rem}
+.exsel{width:100%;max-width:34rem;padding:8px 10px;border:2px solid var(--in-edge);background:var(--in);border-radius:8px}
+/* クリアしたときに、白い枠の中央に数秒表示するダイアログ（すりガラス風） */
+.cleartoast{position:fixed;left:50%;top:50%;z-index:80;transform:translate(-50%,-40%);opacity:0;pointer-events:none;
+  background:#22C55E;
+  border:0;border-radius:16px;padding:22px 56px;text-align:center;
+  box-shadow:0 10px 30px rgba(20,120,60,.25);transition:opacity .25s ease,transform .25s ease}
+.cleartoast.show{opacity:1;transform:translate(-50%,-50%)}
+.cleartoast .ct-txt{display:block;font-size:2.1rem;font-weight:700;letter-spacing:.35em;margin-right:-.35em;color:#fff;line-height:1.2;text-shadow:0 1px 2px rgba(0,70,35,.35)}
+@media (prefers-reduced-motion:reduce){.cleartoast{transition:none}}
+/* 出力のマスは、上下の中心が線の高さにくるようにする（見出しはマスの上に浮かせる） */
+.obw{position:relative}
+.obw .obl{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:3px}
+</style>
+</head>
+<body class="is-top">
+<section id="top" aria-label="トップ"><div class="top-in"><div><h1 class="top-ttl">論理回路のしくみ</h1><p class="top-lead">AND・OR・NOTの３つの回路から、コンピュータが足し算をするしくみまでを、<br class="pc-br">手を動かしながら確かめよう。</p><button type="button" class="btn primary start" data-act="start">はじめる</button></div></div></section>
+<header class="wrap">
+  <div class="brand"><h1 id="apptitle" title="トップ画面へ" style="cursor:pointer">論理回路のしくみ</h1></div>
+  <nav class="rail" id="rail" aria-label="ステップ"></nav>
+</header>
+<main class="wrap"><div class="sheet" id="main"></div></main>
+<div class="wrap foot"><button class="linkbtn" id="reset" type="button">記録を消して最初からやり直す</button></div>
+<div class="cleartoast" id="cleartoast" role="status" aria-live="polite"><span class="ct-txt">クリア！</span></div>
+<div class="bar"><div class="wrap">
+  <button class="btn" id="back" type="button">もどる</button>
+  <span class="status" id="status" aria-live="polite"></span>
+  <span id="nexts" style="display:flex;gap:8px;flex-wrap:nowrap;flex:0 0 auto"></span>
+</div></div>
+
+<script>
+/* ============ 状態の保存 ============ */
+const KEY = 'logic-circuit-app-v1';
+const N = () => null;
+function initState(){
+  const blank = n => Array(n).fill(null);
+  return {
+    cur:0, intro:['','',''],
+    s1:{a:0,b:0,ans:blank(4)}, s2:{a:0,b:0,ans:blank(4)}, s3:{a:0,ans:blank(2)},
+    s4:blank(10), s5:blank(8),
+    s6:{a:0,b:0,c:blank(4),s:blank(4)},
+    s7:{or:null,and:null,not:null,s:null,c:null},
+    s8:{or:null,and:null,not:null,s:null,c:null},
+    s9:['','','',''], s10:['','','',''],
+    e1:{c:blank(8),s:blank(8)},
+    e2:{c:blank(16),s2:blank(16),s1:blank(16)},
+    e3:{x1:blank(4),x2:blank(4),sim:{a:0,b:0}},
+    e4:{t:blank(4),sim:{a:0,b:0},b:{slots:blank(2),wires:{}}},
+    e5:{t:blank(4),sim:{a:0,b:0},b:{slots:blank(2),wires:{}}},
+    e6:{t1:blank(2),g1:'',t2:blank(4),g2:'',t3:blank(4),g3:''},
+    e7:{not:{slots:blank(1),wires:{}},and:{slots:blank(3),wires:{}},or:{slots:blank(2),wires:{}}},
+    e8:{b:{slots:blank(2),wires:{}}},
+    e9:{b:{slots:blank(4),wires:{}}},
+    e10:{a:0,b:0,q:[1,0],c:['','','',''],d:['','','',''],ex:''}
+  };
+}
+function merge(def, src){
+  if (src === undefined || src === null) return def;
+  if (Array.isArray(def)) return Array.isArray(src) && src.length === def.length ? src : def;
+  if (typeof def === 'object' && def !== null){
+    if (typeof src !== 'object' || Array.isArray(src)) return def;
+    if (Object.keys(def).length===0) return src; /* 線のつながり（キーが自由な記録）はそのまま使う */
+    const o = {}; for (const k in def) o[k] = merge(def[k], src[k]); return o;
+  }
+  return typeof src === typeof def || def === null ? src : def;
+}
+let S = initState();
+try { const raw = localStorage.getItem(KEY); if (raw) S = merge(initState(), JSON.parse(raw)); } catch(e) {}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {} }
+let unlockAll = false;
+
+/* ============ 論理演算と正解 ============ */
+const AND=(a,b)=>a&b, OR=(a,b)=>a|b, NOT=a=>1-a;
+const T2=[[0,0],[0,1],[1,0],[1,1]];
+const P4=[['AND',1,0],['OR',1,0],['NOT',1],['AND',0,0],['OR',0,0],['AND',1,1],['OR',1,1],['NOT',0],['AND',0,1],['OR',0,1]];
+const P5=[['AND',1,0],['OR',1,0],['AND',0,0],['OR',0,0],['AND',1,1],['OR',1,1],['AND',0,1],['OR',0,1]];
+const p4ans=p=>p[0]==='AND'?AND(p[1],p[2]):p[0]==='OR'?OR(p[1],p[2]):NOT(p[1]);
+const p5ans=p=>NOT(p[0]==='AND'?AND(p[1],p[2]):OR(p[1],p[2]));
+const ha=(a,b)=>{const o=OR(a,b),n=AND(a,b),nt=NOT(n);return {or:o,and:n,not:nt,s:AND(o,nt),c:n};};
+/* Step9の正解：基本の答えに加えて、2桁で書いた答え（00・01・01・10）も正解 */
+const S9ANS=[['0','00'],['1','01'],['1','01'],['10']];
+const s9ok=(v,i)=>S9ANS[i].includes(norm(v));
+const OPTS=['選択してください','Aが１なら０が出力される','Aが０なら１が出力される','AかつBが１なら　１が出力される','AまたはBが１なら　１が出力される'];
+const S10ANS=[OPTS[3],OPTS[4],OPTS[1]];
+/* Step10：①・②は１つずつ、③（NOT回路）は「Aが１なら０」「Aが０なら１」の２つを、上下どちらの順でも正解にする */
+const S10NOT=[OPTS[1],OPTS[2]];
+function s10ok(k){
+  const v=S.s10[k];
+  if(k<2) return v===S10ANS[k];
+  const other=S.s10[k===2?3:2];
+  return S10NOT.includes(v) && v!==other;
+}
+const s10clear=()=>[0,1,2,3].every(s10ok);
+const sel10=k=>`<select id="s10-${k}" data-act="sel" data-path="s10.${k}">${OPTS.map((o,j)=>`<option value="${j===0?'':o}"${(S.s10[k]===o||(j===0&&!S.s10[k]))?' selected':''}>${o}</option>`).join('')}</select>`;
+const E1=[...Array(8)].map((_,i)=>{const a=i>>2&1,b=i>>1&1,x=i&1,s=a+b+x;return {a,b,x,C:s>>1&1,S:s&1};});
+const E2=[...Array(16)].map((_,i)=>{const a2=i>>3&1,a1=i>>2&1,b2=i>>1&1,b1=i&1,s=(2*a2+a1)+(2*b2+b1);return {a2,a1,b2,b1,C:s>>2&1,S2:s>>1&1,S1:s&1};});
+const norm = v => String(v).replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).trim();
+
+/* ============ 部品（SVG・入力） ============ */
+function gate(type,x,y){
+  if(type==='AND') return {svg:`<path class="g" d="M${x},${y} h45 a30,30 0 0 1 0,60 h-45 Z"/>`,ins:[y+15,y+45],inX:x+14,out:[x+75,y+30]};
+  if(type==='OR')  return {svg:`<path class="g" d="M${x},${y} Q${x+50},${y} ${x+80},${y+30} Q${x+50},${y+60} ${x},${y+60} Q${x+18},${y+30} ${x},${y} Z"/>`,ins:[y+15,y+45],inX:x+20,out:[x+80,y+30]};
+  return {svg:`<path class="g" d="M${x},${y} L${x+48},${y+25} L${x},${y+50} Z"/><circle class="g" cx="${x+54}" cy="${y+25}" r="6"/>`,ins:[y+25],inX:x+10,out:[x+60,y+25]};
+}
+const wire=(d,v)=>`<path class="w${v===1?' on':''}" d="${d}"/>`;
+const dot=(x,y,v)=>`<circle class="dot${v===1?' on':''}" cx="${x}" cy="${y}" r="4"/>`;
+const ov=(x,y,W,H,html)=>`<div class="ov" style="left:${(x/W*100).toFixed(2)}%;top:${(y/H*100).toFixed(2)}%">${html}</div>`;
+const val=v=>v===null||v===undefined||v===''?'？':v;
+const tog=(path,v,label)=>`<button type="button" class="box in" data-act="tog" data-path="${path}" aria-label="${label}（いまは${v}）。押すと切り替わる">${v}</button>`;
+const cyc=(path,v,label,extra='')=>`<button type="button" class="box in cyc${v===null?' blank':''} ${extra}" data-act="cyc" data-path="${path}" aria-label="${label}（${v===null?'未入力':v}）">${val(v)}</button>`;
+const outBox=(v,label)=>`<div class="box out" role="img" aria-label="${label}は${v}">${v}</div>`;
+/* 0か1を選ぶプルダウン（初期値は「？」） */
+const dd=(path,v,label)=>`<span class="ddw${v===null?' blank':''}" data-v="${v===null?'？':v}"><select class="dd" data-act="ddsel" data-path="${path}" aria-label="${label}${v===null?'（未回答）':''}"><option value=""${v===null?' selected':''}>&nbsp;</option><option value="0"${v===0?' selected':''}>0</option><option value="1"${v===1?' selected':''}>1</option></select></span>`;
+const seg=(path,v,label)=>dd(path,v,label);
+/* はじめに：回路の名称を選ぶプルダウン（未選択のときは「？」） */
+const NAMES=['AND回路','OR回路','NOT回路'];
+const nameDD=i=>{const v=S.intro[i];return `<span class="ddw nm${v===''?' blank':''}" data-v="${v===''?'？':v}"><select class="dd dd-name" data-act="sel" data-path="intro.${i}" aria-label="${i+1}つ目の回路の名称"><option value=""${v===''?' selected':''}>&nbsp;</option>${NAMES.map(n=>`<option value="${n}"${v===n?' selected':''}>${n}</option>`).join('')}</select></span>`;};
+let hideMarks=false;
+const mark=(filled,ok)=>hideMarks?'':!filled?'<span class="mk"></span>':ok?'<span class="mk ok" aria-label="正解">○</span>':'<span class="mk ng" aria-label="不正解">×</span>';
+
+/* 入力A・Bと1つのゲート（出力をその場で表示） */
+function gateFig(type,a,b,path){
+  const W=440,H=170, G=gate(type,190,type==='NOT'?60:55);
+  let s='', o='';
+  if(type==='NOT'){
+    s+=wire(`M80,85 H${G.inX}`,a);
+    o+=ov(50,85,W,H,`<div class="io"><span class="lbl">A</span>${tog(path+'.a',a,'入力A')}</div>`);
+  }else{
+    s+=wire(`M80,40 H150 V${G.ins[0]} H${G.inX}`,a)+wire(`M80,130 H150 V${G.ins[1]} H${G.inX}`,b);
+    o+=ov(50,40,W,H,`<div class="io"><span class="lbl">A</span>${tog(path+'.a',a,'入力A')}</div>`);
+    o+=ov(50,130,W,H,`<div class="io"><span class="lbl">B</span>${tog(path+'.b',b,'入力B')}</div>`);
+  }
+  const out = type==='AND'?AND(a,b):type==='OR'?OR(a,b):NOT(a);
+  s+=wire(`M${G.out[0]},${G.out[1]} H385`,out)+G.svg; // 線は出力のマスの中まで伸ばす（マスの下に隠れる）
+  o+=ov(385,85,W,H,`<div class="obw"><div class="lbl obl">結果</div>${outBox(out,'結果')}</div>`);
+  return `<div class="fig"><svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${s}</svg>${o}</div>`;
+}
+/* スイッチと電球の回路 */
+function sw(x,y,closed,label){
+  const lever = closed?`<line class="sw" x1="${x}" y1="${y}" x2="${x+46}" y2="${y}"/>`:`<line class="sw" x1="${x}" y1="${y}" x2="${x+40}" y2="${y-24}"/>`;
+  return lever+`<circle class="dot" cx="${x}" cy="${y}" r="4.5"/><circle class="dot" cx="${x+50}" cy="${y}" r="4.5"/><text class="t" x="${x+25}" y="${y+24}" text-anchor="middle">${label}</text>`;
+}
+/* 押しボタン式のスイッチ（逆T字）：はじめは接点につながっていて、押す（A=1）と下がって切り離される */
+function pushSw(x,y,a,V){
+  const d=a===1?18:0, bar=y+5+d, top=y-28+d, cx=x+25;
+  let g=`<g class="hotsw" data-act="tog" data-path="s3.a" role="button" aria-label="スイッチA（押すと切り離される）">`;
+  g+=`<rect x="${x-14}" y="${y-36}" width="78" height="72" fill="transparent"/>`;
+  g+=`<line class="w${V===1?' on':''}" x1="${x-4}" y1="${bar}" x2="${x+54}" y2="${bar}" style="stroke-width:5"/>`;
+  g+=`<line class="sw" x1="${cx}" y1="${bar}" x2="${cx}" y2="${top}"/>`;
+  g+=`</g>`;
+  g+=`<circle class="dot" cx="${x}" cy="${y}" r="4.5"/><circle class="dot" cx="${x+50}" cy="${y}" r="4.5"/>`;
+  g+=`<text class="t" x="${x-14}" y="${y-18}" text-anchor="end">A</text>`;
+  if(a===1) g+=`<text class="ts" x="${x+62}" y="${bar+4}">押している</text>`;
+  return g;
+}
+function lampFig(type,a,b){
+  const on = type==='AND'?AND(a,b):type==='OR'?OR(a,b):NOT(a);
+  const V=on?1:0;
+  let s='';
+  s+=wire('M50,40 V100',V)+wire('M50,112 V180 H390 V130',V)+wire('M390,90 V40',V);
+  s+=`<line class="bat-l" x1="30" y1="100" x2="70" y2="100"/><line class="bat-s" x1="41" y1="112" x2="59" y2="112"/><text class="ts" x="76" y="98">＋</text><text class="ts" x="76" y="125">電池</text>`;
+  if(type==='AND'){
+    s+=wire('M50,40 H150',V)+wire('M200,40 H250',V)+wire('M300,40 H390',V);
+    s+=sw(150,40,a===1,'A')+sw(250,40,b===1,'B');
+  }else if(type==='OR'){
+    s+=wire('M50,40 H130',V)+wire('M290,40 H390',V);
+    s+=wire('M130,40 H175',on&&a?1:0)+wire('M225,40 H290',on&&a?1:0);
+    s+=wire('M130,40 V110 H175',on&&b?1:0)+wire('M225,110 H290 V40',on&&b?1:0);
+    s+=sw(175,40,a===1,'A')+sw(175,110,b===1,'B')+dot(130,40,V)+dot(290,40,V);
+  }else{
+    s+=wire('M50,40 H195',V)+wire('M245,40 H390',V);
+    s+=pushSw(195,40,a,V);
+  }
+  s+=`<g class="lamp${on?' lit':''}"><circle class="glow" cx="390" cy="110" r="34"/><circle class="bulb" cx="390" cy="110" r="20"/><path class="fil" d="M383,130 V114 Q390,98 397,114 V130"/></g><text class="ts" x="418" y="114">電球</text>`;
+  const cap = type==='AND'?'スイッチA・Bを直列につないだ回路（１＝スイッチを押す）':type==='OR'?'スイッチA・Bを並列につないだ回路（１＝スイッチを押す）':'はじめはつながっていて、Aを１にする（ボタンを押す）と切り離される回路。スイッチを押しても切り替えられる';
+  return `<div class="fig"><svg viewBox="0 0 450 200" role="img" aria-label="電球は${on?'点灯':'消灯'}">${s}</svg></div><p class="cap">${cap}　電球：${on?'点灯':'消灯'}</p>`;
+}
+/* 半加算器の回路 mode: live=入力を切り替えて観察 / quiz=途中の値を入力 */
+/* 半加算器の図の並び：true＝入力に近い側でAND回路が上・OR回路が下／false＝OR回路が上・AND回路が下（以前の版） */
+const HA_AND_TOP = true;
+function haFig(mode,a,b,path){
+  const W=760,H=270, v=ha(a,b), L=mode==='live';
+  const w=(d,x)=>wire(d,L?x:undefined);
+  let s='', P;
+  s+=wire('M68,70 H235',a)+wire('M150,70 V200 H235',a)+dot(150,70,a);
+  s+=wire('M68,230 H235',b)+wire('M180,230 V206 A6,6 0 0 1 180,194 V100 H235',b)+dot(180,230,b);
+  if(HA_AND_TOP){
+    const AG=gate('AND',215,55), OG=gate('OR',215,185), NG=gate('NOT',440,125), FG=gate('AND',590,170);
+    s+=w('M290,85 H695',v.and)+w('M420,85 V150 H452',v.and)+(L?dot(420,85,v.and):dot(420,85));
+    s+=w('M295,215 H605',v.or);
+    s+=w('M500,150 H560 V185 H605',v.not);
+    s+=w('M665,200 H695',v.s);
+    s+=OG.svg+AG.svg+NG.svg+FG.svg;
+    s+=`<text class="t" x="720" y="57" text-anchor="middle">C(桁上げ)</text><text class="t" x="720" y="172" text-anchor="middle">S(結果)</text>`;
+    P={and:[345,85],or:[345,215],not:[528,150],s:[720,200],c:[720,85]};
+  }else{
+    const OG=gate('OR',215,55), AG=gate('AND',215,185), NG=gate('NOT',440,125), FG=gate('AND',590,70);
+    s+=w('M295,85 H605',v.or);
+    s+=w('M290,215 H695',v.and)+w('M420,215 V150 H452',v.and)+(L?dot(420,215,v.and):dot(420,215));
+    s+=w('M500,150 H560 V115 H605',v.not);
+    s+=w('M665,100 H695',v.s);
+    s+=OG.svg+AG.svg+NG.svg+FG.svg;
+    s+=`<text class="t" x="720" y="68" text-anchor="middle">S(結果)</text><text class="t" x="720" y="183" text-anchor="middle">C(桁上げ)</text>`;
+    P={or:[345,85],and:[345,215],not:[528,150],s:[720,100],c:[720,215]};
+  }
+  const NM={or:'OR回路の出力',and:'AND回路の出力',not:'NOT回路の出力',s:'S',c:'C'};
+  let o='';
+  if(L){
+    o+=ov(40,70,W,H,`<div class="io"><span class="lbl">A</span>${tog(path+'.a',a,'入力A')}</div>`);
+    o+=ov(40,230,W,H,`<div class="io"><span class="lbl">B</span>${tog(path+'.b',b,'入力B')}</div>`);
+    for(const k in P) o+=ov(P[k][0],P[k][1],W,H,outBox(v[k],NM[k]));
+  }else{
+    const st=S[path];
+    o+=ov(40,70,W,H,`<div class="io"><span class="lbl">A</span>${outBox(a,'入力A')}</div>`);
+    o+=ov(40,230,W,H,`<div class="io"><span class="lbl">B</span>${outBox(b,'入力B')}</div>`);
+    for(const k in P) o+=ov(P[k][0],P[k][1],W,H,dd(path+'.'+k,st[k],NM[k]));
+  }
+  return `<p class="hint-sc">図は左右にスクロールできます</p><div class="scroll"><div class="fig"><svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${s}</svg>${o}</div></div>`;
+}
+
+/* 小さなゲート図（練習問題・まとめ用） */
+function miniGate(type,ins,withNot){
+  const W=withNot?250:180,H=80, G=gate(type,50,type==='NOT'?15:10);
+  let s='';
+  if(type==='NOT'){ s+=wire(`M24,40 H${G.inX}`,ins[0])+`<text class="t" x="10" y="45">${ins[0]}</text>`; }
+  else{ s+=wire(`M24,25 H${G.inX}`,ins[0])+wire(`M24,55 H${G.inX}`,ins[1])+`<text class="t" x="10" y="30">${ins[0]}</text><text class="t" x="10" y="60">${ins[1]}</text>`; }
+  if(withNot){ const NG=gate('NOT',145,15); s+=wire(`M${G.out[0]},40 H${NG.inX}`)+wire(`M${NG.out[0]},40 H${W-4}`)+G.svg+NG.svg; }
+  else s+=wire(`M${G.out[0]},40 H${W-4}`)+G.svg;
+  return `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${s}</svg>`;
+}
+function symGate(type){
+  const G=gate(type,40,type==='NOT'?15:10);
+  let s = type==='NOT'?wire(`M5,40 H${G.inX}`):wire(`M5,25 H${G.inX}`)+wire(`M5,55 H${G.inX}`);
+  s+=wire(`M${G.out[0]},40 H150`)+G.svg;
+  if(type!=='NOT') s+=`<text class="ts" x="0" y="20">A</text><text class="ts" x="0" y="70">B</text>`; else s+=`<text class="ts" x="0" y="35">A</text>`;
+  s+=`<text class="ts" x="128" y="33">出力</text>`;
+  return `<svg viewBox="0 0 155 80" aria-hidden="true" style="width:100%;max-width:220px">${s}</svg>`;
+}
+/* Step12の表示切り替え：0＝AND・OR・NOT回路で表示／1＝半加算器をまとめて表示／2＝半加算器・全加算器をまとめて表示 */
+let e2View = 0;
+/* Step11の表示切り替え（中身はStep12と同じ3段階） */
+let e1View = 0;
+const E2VIEW_LABEL=['AND・OR・NOT回路で表示','半加算器をまとめて表示','半加算器と全加算器をまとめて表示'];
+/* まとめた半加算器：丸角四角の左にA・B、右にC・S（入出力の位置は haGates と同じ） */
+function haBlock(ox,oy){
+  const X=v=>ox+v, Y=v=>oy+v;
+  let s=`<rect class="blk2" x="${X(-12)}" y="${Y(-10)}" width="357" height="162" rx="16"/>`;
+  s+=`<text class="t big" x="${X(166)}" y="${Y(80)}" text-anchor="middle">半加算器</text>`;
+  s+=`<text class="t port" x="${X(0)}" y="${Y(20+8)}">A</text><text class="t port" x="${X(0)}" y="${Y(125+8)}">B</text>`;
+  s+=`<text class="t port" x="${X(333)}" y="${Y(HA_OUT.c+8)}" text-anchor="end">C</text><text class="t port" x="${X(333)}" y="${Y(HA_OUT.s+8)}" text-anchor="end">S</text>`;
+  return s;
+}
+/* まとめた全加算器：丸角四角の左にA・B・X、右にC・S（入出力の位置は faGates と同じ） */
+function faBlock(ox,oy){
+  const X=v=>ox+v, Y=v=>oy+v;
+  let s=wire(`M${X(0)},${Y(60)} H${X(40)}`)+wire(`M${X(0)},${Y(165)} H${X(40)}`)+wire(`M${X(0)},${Y(315)} H${X(40)}`);
+  s+=wire(`M${X(940)},${Y(FA_OUT.c)} H${X(970)}`)+wire(`M${X(940)},${Y(FA_OUT.s)} H${X(970)}`);
+  s+=`<rect class="blk2" x="${X(40)}" y="${Y(18)}" width="900" height="342" rx="24"/>`;
+  s+=`<text class="t big" x="${X(490)}" y="${Y(196)}" text-anchor="middle">全加算器</text>`;
+  s+=`<text class="t port" x="${X(54)}" y="${Y(68)}">A</text><text class="t port" x="${X(54)}" y="${Y(173)}">B</text><text class="t port" x="${X(54)}" y="${Y(323)}">X</text>`;
+  s+=`<text class="t port" x="${X(926)}" y="${Y(FA_OUT.c+8)}" text-anchor="end">C</text><text class="t port" x="${X(926)}" y="${Y(FA_OUT.s+8)}" text-anchor="end">S</text>`;
+  return s;
+}
+/* 全加算器・2桁加算器の回路図（Excel教材と同じく、半加算器をAND・OR・NOT回路の組み合わせで表示） */
+/* 半加算器1個分：左端(ox,oy)から入力1(oy+20)・入力2(oy+125)が入り、右端(ox+345)から S・C が出る（高さは HA_OUT） */
+const HA_OUT = HA_AND_TOP ? {c:35,s:80} : {s:50,c:110};
+function haGates(ox,oy,asBlock){
+  if(asBlock) return haBlock(ox,oy);
+  const X=v=>ox+v, Y=v=>oy+v;
+  let s=`<rect class="blk" x="${X(-12)}" y="${Y(-10)}" width="372" height="162" rx="14"/>`;
+  s+=`<text class="ts" x="${X(352)}" y="${Y(8)}" text-anchor="end">半加算器</text>`;
+  const TG=gate(HA_AND_TOP?'AND':'OR',X(60),Y(5)), BG=gate(HA_AND_TOP?'OR':'AND',X(60),Y(80));
+  // 入力1：上の回路の上・下の回路の上へ／入力2：下の回路の下・上の回路の下へ（交差は飛び越し）
+  s+=wire(`M${X(0)},${Y(20)} H${TG.inX}`)+wire(`M${X(25)},${Y(20)} V${Y(95)} H${BG.inX}`)+dot(X(25),Y(20));
+  s+=wire(`M${X(0)},${Y(125)} H${BG.inX}`)+wire(`M${X(45)},${Y(125)} V${Y(101)} A6,6 0 0 1 ${X(45)},${Y(89)} V${Y(50)} H${TG.inX}`)+dot(X(45),Y(125));
+  if(HA_AND_TOP){
+    const NG=gate('NOT',X(172),Y(40)), FG=gate('AND',X(250),Y(50));
+    s+=wire(`M${TG.out[0]},${Y(35)} H${X(345)}`)+wire(`M${X(160)},${Y(35)} V${Y(65)} H${NG.inX}`)+dot(X(160),Y(35));
+    s+=wire(`M${NG.out[0]},${Y(65)} H${FG.inX}`);
+    s+=wire(`M${BG.out[0]},${Y(110)} H${X(200)} V${Y(95)} H${FG.inX}`);
+    s+=wire(`M${FG.out[0]},${Y(80)} H${X(345)}`);
+    s+=TG.svg+BG.svg+NG.svg+FG.svg;
+  }else{
+    const NG=gate('NOT',X(172),Y(40)), FG=gate('AND',X(250),Y(20));
+    s+=wire(`M${TG.out[0]},${Y(35)} H${FG.inX}`);
+    s+=wire(`M${BG.out[0]},${Y(110)} H${X(345)}`)+wire(`M${X(160)},${Y(110)} V${Y(65)} H${NG.inX}`)+dot(X(160),Y(110));
+    s+=wire(`M${NG.out[0]},${Y(65)} H${FG.inX}`);
+    s+=wire(`M${FG.out[0]},${Y(50)} H${X(345)}`);
+    s+=TG.svg+BG.svg+NG.svg+FG.svg;
+  }
+  return s;
+}
+/* 全加算器1個分：左端oxから A(oy+60)・B(oy+165)・X(oy+315) が入り、ox+970 から C・S が出る（高さは FA_OUT） */
+const FA_OUT = HA_AND_TOP ? {c:150,s:270} : {c:165,s:240};
+function faGates(ox,oy,haAsBlock,asBlock){
+  if(asBlock) return faBlock(ox,oy);
+  const X=v=>ox+v, Y=v=>oy+v, h1=40, h2=190;
+  let s=`<rect class="blk" x="${X(40)}" y="${Y(18)}" width="915" height="342" rx="22"/>`;
+  s+=`<text class="ts" x="${X(945)}" y="${Y(352)}" text-anchor="end">全加算器</text>`;
+  s+=wire(`M${X(0)},${Y(60)} H${X(60)}`)+wire(`M${X(0)},${Y(165)} H${X(60)}`)+wire(`M${X(0)},${Y(315)} H${X(450)}`);
+  s+=haGates(X(60),Y(h1),haAsBlock)+haGates(X(450),Y(h2),haAsBlock);
+  const s1=h1+HA_OUT.s, c1=h1+HA_OUT.c, s2=h2+HA_OUT.s, c2=h2+HA_OUT.c;
+  if(HA_AND_TOP){
+    const OR=gate('OR',X(850),Y(120));
+    s+=wire(`M${X(405)},${Y(s1)} H${X(430)} V${Y(210)} H${X(450)}`);
+    s+=wire(`M${X(405)},${Y(c1)} H${X(830)} V${Y(135)} H${OR.inX}`);
+    s+=wire(`M${X(795)},${Y(c2)} H${X(815)} V${Y(165)} H${OR.inX}`);
+    s+=wire(`M${X(795)},${Y(s2)} H${X(970)}`);
+    s+=wire(`M${OR.out[0]},${Y(150)} H${X(970)}`)+OR.svg;
+  }else{
+    const OR=gate('OR',X(850),Y(135));
+    s+=wire(`M${X(405)},${Y(s1)} H${X(430)} V${Y(210)} H${X(450)}`);
+    s+=wire(`M${X(405)},${Y(c1)} H${X(424)} A6,6 0 0 1 ${X(436)},${Y(c1)} H${OR.inX}`);
+    s+=wire(`M${X(795)},${Y(c2)} H${X(820)} V${Y(180)} H${OR.inX}`);
+    s+=wire(`M${X(795)},${Y(s2)} H${X(814)} A6,6 0 0 1 ${X(826)},${Y(s2)} H${X(970)}`);
+    s+=wire(`M${OR.out[0]},${Y(165)} H${X(970)}`)+OR.svg;
+  }
+  return s;
+}
+const lblL=(x,y,t)=>`<text class="t big" x="${x}" y="${y+6}" text-anchor="end">${t}</text>`;
+const lblR=(x,y,t,sub)=>`<text class="t big" x="${x}" y="${y+6}">${t}</text>`+(sub?`<text class="ts" x="${x}" y="${y+26}">${sub}</text>`:'');
+function fullAdderFig(){
+  let s=faGates(60,10,e1View>=1,e1View===2);
+  s+=lblL(48,70,'A')+lblL(48,175,'B')+lblL(48,325,'X');
+  // 全加算器をまとめた表示では、四角の中の「X」と重ならないよう図の下に置く
+  const H=e1View===2?405:385;
+  s+= e1View===2 ? `<text class="ts" x="8" y="398">X：下の桁からの繰り上がり</text>` : `<text class="ts" x="110" y="346">下の桁からの繰り上がり</text>`;
+  s+=lblR(1040,10+FA_OUT.c,'C','桁上げ')+lblR(1040,10+FA_OUT.s,'S','和');
+  return `<div class="scroll"><div class="fig wide"><svg viewBox="0 0 1120 ${H}" role="img" aria-label="全加算器の回路図（半加算器2個とOR回路）">${s}</svg></div></div>`;
+}
+function twoBitFig(){
+  /* 位置の調整用：HX＝下の半加算器の左端、FX＝全加算器の左端、BX＝半加算器のCを上へ折り曲げる位置 */
+  const HX=140, FX=540, BX=510, R=FX+970;
+  // A₁・B₁ の入力線は先に描く（まとめ表示のときは四角の下に隠れる）
+  let s=wire(`M66,410 H${HX}`)+wire(`M66,515 H${HX}`);
+  s+=faGates(FX,10,e2View>=1,e2View===2)+haGates(HX,390,e2View>=1);
+  const hc=390+HA_OUT.c, hs=390+HA_OUT.s, ho=HX+345;
+  s+=lblL(FX-12,70,'A₂')+lblL(FX-12,175,'B₂');
+  // A₁・B₁ は点線の枠から離して置き、入力の線を長めにとる
+  s+=lblL(58,410,'A₁')+lblL(58,515,'B₁');
+  // 半加算器のC → 全加算器の繰り上がり入力、S → S₁
+  s+=wire(`M${ho},${hc} H${BX} V325 H${FX}`);
+  s+= hs>hc ? wire(`M${ho},${hs} H${R}`) : wire(`M${ho},${hs} H${BX-6} A6,6 0 0 1 ${BX+6},${hs} H${R}`);
+  s+=lblR(R+10,10+FA_OUT.c,'C')+lblR(R+10,10+FA_OUT.s,'S₂')+lblR(R+10,hs,'S₁');
+  return `<div class="scroll"><div class="fig wide"><svg viewBox="0 0 ${R+70} 565" role="img" aria-label="2桁の加算回路の回路図（半加算器と全加算器）">${s}</svg></div></div>`;
+}
+/* ============ 発展3〜9：記号・組み立て課題の部品 ============ */
+/* 論理回路の記号（入力側の端子 x-4、出力側の端子 x+116、高さ60） */
+function gsym(type,x,y,vals){
+  const vi=j=>vals?vals.ins[j]:undefined, vo=vals?vals.out:undefined;
+  let s='', ins, bodyInX, out=[x+116,y+30];
+  if(type==='NOT'){
+    const G=gate('NOT',x+30,y+5); s+=G.svg; ins=[[x-4,y+30]];
+    s=wire(`M${x-4},${y+30} H${G.inX}`,vi(0))+s+wire(`M${G.out[0]},${y+30} H${x+116}`,vo);
+    return {svg:s,ins,outs:[out]};
+  }
+  let body='', outX;
+  if(type==='AND'||type==='NAND'){ const G=gate('AND',x+14,y); body=G.svg; bodyInX=G.inX; outX=x+89;
+    if(type==='NAND'){ body+=`<circle class="g" cx="${x+95}" cy="${y+30}" r="6"/>`; outX=x+101; } }
+  else if(type==='OR'||type==='NOR'){ const G=gate('OR',x+8,y); body=G.svg; bodyInX=G.inX; outX=x+88;
+    if(type==='NOR'){ body+=`<circle class="g" cx="${x+94}" cy="${y+30}" r="6"/>`; outX=x+100; } }
+  else if(type==='XOR'){ const G=gate('OR',x+16,y); body=G.svg+`<path class="g" style="fill:none" d="M${x+6},${y} Q${x+24},${y+30} ${x+6},${y+60}"/>`; bodyInX=x+15; outX=x+96; }
+  ins=[[x-4,y+15],[x-4,y+45]];
+  s+=wire(`M${x-4},${y+15} H${bodyInX}`,vi(0))+wire(`M${x-4},${y+45} H${bodyInX}`,vi(1))+body+wire(`M${outX},${y+30} H${x+116}`,vo);
+  return {svg:s,ins,outs:[out]};
+}
+/* 半加算器・全加算器の記号（丸角四角の左に入力、右に出力） */
+function bsym(type,x,y){
+  const fa=type==='FA', h=fa?130:100, inN=fa?['A','B','X']:['A','B'], inY=fa?[25,65,105]:[25,75], outY=fa?[25,65]:[25,75];
+  let s='';
+  inY.forEach(v=>s+=wire(`M${x-4},${y+v} H${x+6}`)); outY.forEach(v=>s+=wire(`M${x+110},${y+v} H${x+120}`));
+  s+=`<rect class="blk2" x="${x+6}" y="${y}" width="104" height="${h}" rx="10"/>`;
+  inN.forEach((n,i)=>s+=`<text class="t" x="${x+14}" y="${y+inY[i]+5}">${n}</text>`);
+  ['C','S'].forEach((n,i)=>s+=`<text class="t" x="${x+102}" y="${y+outY[i]+5}" text-anchor="end">${n}</text>`);
+  s+=`<text class="ts" x="${x+58}" y="${y+h/2+(fa?4:4)}" text-anchor="middle">${fa?'全加算器':'半加算器'}</text>`;
+  return {svg:s,ins:inY.map(v=>[x-4,y+v]),outs:outY.map(v=>[x+120,y+v])};
+}
+const COMP={
+  AND:{n:2,f:([a,b])=>[a&b],label:'AND'}, OR:{n:2,f:([a,b])=>[a|b],label:'OR'}, NOT:{n:1,f:([a])=>[1-a],label:'NOT'},
+  NAND:{n:2,f:([a,b])=>[1-(a&b)],label:'NAND'}, NOR:{n:2,f:([a,b])=>[1-(a|b)],label:'NOR'}, XOR:{n:2,f:([a,b])=>[a^b],label:'XOR'},
+  HA:{n:2,f:([a,b])=>[a&b,a^b],label:'半加算器',block:true}, FA:{n:3,f:([a,b,x])=>{const s=a+b+x;return [s>>1,s&1];},label:'全加算器',block:true}
+};
+const compGeom=(type,x,y)=>COMP[type].block?bsym(type,x,y):gsym(type,x,y);
+
+/* 組み立て課題の設定 */
+const nb=n=>Array(n).fill(null);
+const BCFG={
+  'e4.b':{W:640,H:230,palette:['AND','NOT'],slots:[[170,85],[350,85]],
+    inputs:[{k:'A',x:80,y:70,dir:[1,0]},{k:'B',x:80,y:160,dir:[1,0]}],outputs:[{k:'X',x:540,y:115,dir:[-1,0]}],
+    target:e=>({X:1-(e.A&e.B)})},
+  'e5.b':{W:640,H:230,palette:['OR','NOT'],slots:[[170,85],[350,85]],
+    inputs:[{k:'A',x:80,y:70,dir:[1,0]},{k:'B',x:80,y:160,dir:[1,0]}],outputs:[{k:'X',x:540,y:115,dir:[-1,0]}],
+    target:e=>({X:1-(e.A|e.B)})},
+  'e7.not':{W:520,H:200,palette:['NOR'],slots:[[190,70]],
+    inputs:[{k:'A',x:80,y:100,dir:[1,0]}],outputs:[{k:'X',x:420,y:100,dir:[-1,0]}],
+    target:e=>({X:1-e.A})},
+  'e7.and':{W:680,H:300,palette:['NOR'],slots:[[170,40],[170,200],[370,120]],
+    inputs:[{k:'A',x:80,y:70,dir:[1,0]},{k:'B',x:80,y:230,dir:[1,0]}],outputs:[{k:'X',x:580,y:150,dir:[-1,0]}],
+    target:e=>({X:e.A&e.B})},
+  'e7.or':{W:680,H:230,palette:['NOR'],slots:[[170,85],[370,85]],
+    inputs:[{k:'A',x:80,y:70,dir:[1,0]},{k:'B',x:80,y:160,dir:[1,0]}],outputs:[{k:'X',x:580,y:115,dir:[-1,0]}],
+    target:e=>({X:e.A|e.B})},
+  'e8.b':{W:620,H:280,palette:['AND','XOR'],slots:[[210,45],[210,175]],
+    inputs:[{k:'A',x:80,y:80,dir:[1,0]},{k:'B',x:80,y:200,dir:[1,0]}],outputs:[{k:'C',x:490,y:75,dir:[-1,0]},{k:'S',x:490,y:205,dir:[-1,0]}],
+    target:e=>({C:e.A&e.B,S:e.A^e.B})},
+  'e9.b':{W:1040,H:442,palette:['HA','FA'],block:true,slots:[[70,152],[300,152],[530,152],[760,152]],
+    inputs:[0,1,2,3].flatMap(i=>[{k:'A'+i,x:70+i*230+10,y:92,dir:[0,1],label:`A<tspan baseline-shift="sub" font-size="70%">${i}</tspan>`},{k:'B'+i,x:70+i*230+62,y:92,dir:[0,1],label:`B<tspan baseline-shift="sub" font-size="70%">${i}</tspan>`}]),
+    outputs:[0,1,2,3].map(i=>({k:'S'+i,x:70+i*230+60,y:352,dir:[0,-1],label:`S<tspan baseline-shift="sub" font-size="70%">${i}</tspan>`})).concat([{k:'C',x:760+140,y:352,dir:[0,-1]}]),
+    target:e=>{const a=e.A0+2*e.A1+4*e.A2+8*e.A3,b=e.B0+2*e.B1+4*e.B2+8*e.B3,s=a+b;return {S0:s&1,S1:s>>1&1,S2:s>>2&1,S3:s>>3&1,C:s>>4&1};}}
+};
+const BUI={};
+const bui=p=>BUI[p]||(BUI[p]={sel:null,env:Object.fromEntries(BCFG[p].inputs.map(t=>[t.k,0]))});
+const isSrcKey=k=>k.startsWith('in:')||k.includes('.out:');
+function bEval(p,env){
+  const cfg=BCFG[p], st=getPath(p), memo={}, busy={};
+  const comp=i=>{
+    if(i in memo) return memo[i]; if(busy[i]) return null; busy[i]=1;
+    const type=st.slots[i]; let r=null;
+    if(type){ const ins=[]; for(let j=0;j<COMP[type].n;j++){ const w=st.wires[`s${i}.in:${j}`]; ins.push(w?src(w):null); }
+      if(ins.every(v=>v===0||v===1)) r=COMP[type].f(ins); }
+    busy[i]=0; memo[i]=r; return r;
+  };
+  const src=k=>{ if(k.startsWith('in:')) return env[k.slice(3)]; const m=k.match(/^s(\d+)\.out:(\d+)$/); if(!m) return null; const o=comp(+m[1]); return o?o[+m[2]]:null; };
+  const outs=Object.fromEntries(cfg.outputs.map(o=>{const w=st.wires['out:'+o.k];return [o.k,w?src(w):null];}));
+  return {src,outs};
+}
+function bOk(p){
+  const cfg=BCFG[p], ks=cfg.inputs.map(t=>t.k), n=ks.length;
+  for(let m=0;m<(1<<n);m++){
+    const env={}; ks.forEach((k,j)=>env[k]=m>>j&1);
+    const {outs}=bEval(p,env), tg=cfg.target(env);
+    for(const k in tg) if(outs[k]!==tg[k]) return false;
+  }
+  return true;
+}
+function builder(p,note){
+  const cfg=BCFG[p], st=getPath(p), ui=bui(p), ev=bEval(p,ui.env);
+  const pos={}, dir={};
+  let slotsSvg='', compSvg='', pinSvg='', delSvg='', termSvg='', wireSvg='';
+  const blockH=cfg.block?146:76;
+  cfg.slots.forEach(([x,y],i)=>{
+    const hot=ui.sel&&ui.sel.chip;
+    slotsSvg+=`<rect class="slot${hot?' hot':''}" data-b="slot" data-slot="${i}" x="${x-10}" y="${y-8}" width="${cfg.block?140:136}" height="${blockH}" rx="10"/>`;
+    const type=st.slots[i]; if(!type) return;
+    const G=compGeom(type,x,y);
+    compSvg+=`<g data-b="slot" data-slot="${i}" style="cursor:pointer">${G.svg}</g>`;
+    G.ins.forEach((q,j)=>{const k=`s${i}.in:${j}`;pos[k]=q;dir[k]=[-1,0];});
+    G.outs.forEach((q,j)=>{const k=`s${i}.out:${j}`;pos[k]=q;dir[k]=[1,0];});
+    delSvg+=`<g class="delb" data-b="del" data-slot="${i}" role="button" aria-label="部品を取り除く"><circle cx="${x+(cfg.block?124:120)}" cy="${y-8}" r="11"/><text x="${x+(cfg.block?124:120)}" y="${y-3}" text-anchor="middle">×</text></g>`;
+  });
+  cfg.inputs.forEach(t=>{
+    const k='in:'+t.k; pos[k]=[t.x,t.y]; dir[k]=t.dir; const v=ui.env[t.k], lbl=t.label||t.k;
+    if(t.dir[0]===1){
+      termSvg+=`<g class="tg" data-b="tog" data-k="${t.k}" role="button" aria-label="入力${t.k}（${v}）"><rect x="${t.x-50}" y="${t.y-16}" width="34" height="32" rx="6"/><text x="${t.x-33}" y="${t.y+7}" text-anchor="middle">${v}</text></g><text class="t big" x="${t.x-58}" y="${t.y+8}" text-anchor="end">${lbl}</text>`+wire(`M${t.x-16},${t.y} H${t.x}`,v);
+    }else{
+      termSvg+=`<g class="tg" data-b="tog" data-k="${t.k}" role="button" aria-label="入力${t.k}（${v}）"><rect x="${t.x-17}" y="${t.y-50}" width="34" height="32" rx="6"/><text x="${t.x}" y="${t.y-27}" text-anchor="middle">${v}</text></g><text class="t big" x="${t.x}" y="${t.y-66}" text-anchor="middle">${lbl}</text>`+wire(`M${t.x},${t.y-18} V${t.y}`,v);
+    }
+  });
+  cfg.outputs.forEach(o=>{
+    const k='out:'+o.k; pos[k]=[o.x,o.y]; dir[k]=o.dir; const v=ev.outs[o.k], lbl=o.label||o.k, sv=v===null?'？':v;
+    if(o.dir[0]===-1){
+      termSvg+=wire(`M${o.x},${o.y} H${o.x+16}`,v)+`<g class="ob"><rect x="${o.x+16}" y="${o.y-16}" width="34" height="32" rx="6"/><text x="${o.x+33}" y="${o.y+7}" text-anchor="middle">${sv}</text></g><text class="t big" x="${o.x+58}" y="${o.y+8}">${lbl}</text>`;
+    }else{
+      termSvg+=wire(`M${o.x},${o.y} V${o.y+18}`,v)+`<g class="ob"><rect x="${o.x-17}" y="${o.y+18}" width="34" height="32" rx="6"/><text x="${o.x}" y="${o.y+41}" text-anchor="middle">${sv}</text></g><text class="t big" x="${o.x}" y="${o.y+78}" text-anchor="middle">${lbl}</text>`;
+    }
+  });
+  for(const d in st.wires){
+    const s=st.wires[d]; if(!pos[d]||!pos[s]) continue;
+    const [x1,y1]=pos[s],[x2,y2]=pos[d],[a1,b1]=dir[s],[a2,b2]=dir[d];
+    const kk=Math.max(40,Math.hypot(x2-x1,y2-y1)*.4);
+    const path=`M${x1},${y1} C${x1+a1*kk},${y1+b1*kk} ${x2+a2*kk},${y2+b2*kk} ${x2},${y2}`;
+    const v=ev.src(s);
+    wireSvg+=`<path class="w${v===1?' on':''}" d="${path}"/><path class="wirehit" data-b="wire" data-key="${d}" d="${path}"><title>線をタップすると消えます</title></path>`;
+  }
+  for(const k in pos){
+    const [x,y]=pos[k], sel=ui.sel&&ui.sel.pin===k;
+    pinSvg+=`<g data-b="pin" data-key="${k}" data-x="${x}" data-y="${y}"><circle class="pinhit" cx="${x}" cy="${y}" r="15"/><circle class="pin${sel?' sel':''}" cx="${x}" cy="${y}" r="6.5"/></g>`;
+  }
+  const chips=cfg.palette.map(t=>{
+    const icon=COMP[t].block?'':`<svg viewBox="-8 -4 132 68" aria-hidden="true">${gsym(t,0,0).svg}</svg>`;
+    return `<button type="button" class="chip-g${ui.sel&&ui.sel.chip===t?' sel':''}" data-b="chip" data-type="${t}">${icon}<span>${COMP[t].label}</span></button>`;
+  }).join('');
+  return `<div class="bld" data-bid="${p}">
+    <div class="bld-bar"><span class="note">部品</span>${chips}<span style="flex:1"></span><button type="button" class="btn sm" data-b="reset">最初から</button></div>
+    ${note?`<p class="note" style="margin:0 0 6px">${note}</p>`:''}
+    <p class="hint-sc">図は左右にスクロールできます</p>
+    <div class="scroll"><div class="fig" style="min-width:${Math.min(cfg.W,900)}px;max-width:${Math.round(cfg.W*1.1)}px"><svg class="bsvg" viewBox="0 0 ${cfg.W} ${cfg.H}">${slotsSvg}${compSvg}${wireSvg}${termSvg}${pinSvg}${delSvg}<path class="tmpw" d=""/></svg></div></div>
+  </div>`;
+}
+const BUILD_HOWTO=['部品を点線の枠へドラッグして置く（部品を選んでから枠をタップしてもよい）。×で取り除ける','端子の〇から〇へドラッグして線をつなぐ（〇を順にタップしてもよい）。線をタップすると消える','水色の入力の数字を押すと０と１が切り替わり、出力を確かめられる'];
+
+/* 組み立て課題の操作（ドラッグ・タップ） */
+function bPlace(p,i,type){ const st=getPath(p); if(st.slots[i]===type) return; st.slots[i]=type; bDropWires(st,i); }
+function bDropWires(st,i){ for(const d in st.wires){ if(d.startsWith(`s${i}.`)||st.wires[d].startsWith(`s${i}.`)) delete st.wires[d]; } }
+function bConnect(p,a,b){
+  if(a===b||isSrcKey(a)===isSrcKey(b)) return false;
+  const [s,d]=isSrcKey(a)?[a,b]:[b,a]; getPath(p).wires[d]=s; return true;
+}
+let bdrag=null;
+function bCommit(){ save(); render.noScroll=true; render(); }
+function svgPoint(svg,cx,cy){ const pt=svg.createSVGPoint(); pt.x=cx; pt.y=cy; return pt.matrixTransform(svg.getScreenCTM().inverse()); }
+document.addEventListener('pointerdown',e=>{
+  const t=e.target.closest&&e.target.closest('[data-b]'); if(!t) return;
+  const root=t.closest('[data-bid]'); if(!root) return;
+  bdrag={t,b:t.dataset.b,p:root.dataset.bid,x0:e.clientX,y0:e.clientY,moved:false,ghost:null,svg:root.querySelector('svg.bsvg')};
+  if(bdrag.b==='chip'||bdrag.b==='pin') e.preventDefault();
+});
+document.addEventListener('pointermove',e=>{
+  const d=bdrag; if(!d||(d.b!=='chip'&&d.b!=='pin')) return;
+  if(!d.moved&&Math.hypot(e.clientX-d.x0,e.clientY-d.y0)<7) return;
+  d.moved=true; e.preventDefault();
+  if(d.b==='chip'){
+    if(!d.ghost){ d.ghost=document.createElement('div'); d.ghost.className='ghost'; d.ghost.textContent=COMP[d.t.dataset.type].label; document.body.appendChild(d.ghost); }
+    d.ghost.style.left=e.clientX+'px'; d.ghost.style.top=e.clientY+'px';
+  }else{
+    const q=svgPoint(d.svg,e.clientX,e.clientY), x=+d.t.dataset.x, y=+d.t.dataset.y;
+    d.svg.querySelector('.tmpw').setAttribute('d',`M${x},${y} L${q.x},${q.y}`);
+  }
+},{passive:false});
+function bEnd(e,cancel){
+  const d=bdrag; bdrag=null; if(!d) return;
+  if(d.ghost) d.ghost.remove();
+  const tmp=d.svg&&d.svg.querySelector('.tmpw'); if(tmp) tmp.setAttribute('d','');
+  if(cancel) return;
+  const ui=bui(d.p), st=getPath(d.p);
+  if(d.moved){
+    const el=document.elementFromPoint(e.clientX,e.clientY), tg=el&&el.closest('[data-b]');
+    const same=tg&&tg.closest('[data-bid]')&&tg.closest('[data-bid]').dataset.bid===d.p;
+    if(d.b==='chip'&&same&&tg.dataset.b==='slot'){ bPlace(d.p,+tg.dataset.slot,d.t.dataset.type); ui.sel=null; }
+    else if(d.b==='pin'&&same&&tg.dataset.b==='pin'){ bConnect(d.p,d.t.dataset.key,tg.dataset.key); ui.sel=null; }
+    bCommit(); return;
+  }
+  const b=d.b;
+  if(b==='chip'){ const ty=d.t.dataset.type; ui.sel=(ui.sel&&ui.sel.chip===ty)?null:{chip:ty}; }
+  else if(b==='slot'){ if(ui.sel&&ui.sel.chip){ bPlace(d.p,+d.t.dataset.slot,ui.sel.chip); ui.sel=null; } else return; }
+  else if(b==='del'){ const i=+d.t.dataset.slot; st.slots[i]=null; bDropWires(st,i); }
+  else if(b==='wire'){ delete st.wires[d.t.dataset.key]; }
+  else if(b==='tog'){ const k=d.t.dataset.k; ui.env[k]=1-ui.env[k]; bCommit(); return; }
+  else if(b==='reset'){ st.slots=st.slots.map(()=>null); st.wires={}; ui.sel=null; }
+  else if(b==='pin'){
+    const k=d.t.dataset.key;
+    if(ui.sel&&ui.sel.pin&&ui.sel.pin!==k){ if(bConnect(d.p,ui.sel.pin,k)) ui.sel=null; else ui.sel={pin:k}; }
+    else ui.sel=(ui.sel&&ui.sel.pin===k)?null:{pin:k};
+  }
+  bCommit();
+}
+document.addEventListener('pointerup',e=>bEnd(e,false));
+document.addEventListener('pointercancel',e=>bEnd(e,true));
+
+/* 発展の真理値表（押すたびに ？→0→1 のマス） */
+function ttCyc(path,inNames,outName){
+  const n=inNames.length, st=getPath(path);
+  const rows=[...Array(1<<n)].map((_,i)=>inNames.map((_,j)=>i>>(n-1-j)&1));
+  return `<table class="tt sm"><thead><tr>${inNames.map(x=>`<th>${x}</th>`).join('')}<th>${outName}</th></tr></thead><tbody>${rows.map((r,i)=>`<tr>${r.map(v=>`<td class="v">${v}</td>`).join('')}<td>${cyc(`${path}.${i}`,st[i],outName)}</td></tr>`).join('')}</tbody></table>`;
+}
+function ttOk(path,n,f){ const st=getPath(path); return [...Array(1<<n)].every((_,i)=>st[i]===f([...Array(n)].map((_,j)=>i>>(n-1-j)&1))); }
+function ttTarget(inNames,outNames,f){
+  const n=inNames.length, rows=[...Array(1<<n)].map((_,i)=>inNames.map((_,j)=>i>>(n-1-j)&1));
+  return `<table class="tt sm tgt"><thead><tr>${inNames.map(x=>`<th>${x}</th>`).join('')}${outNames.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>{const o=f(r);return `<tr>${r.map(v=>`<td class="v">${v}</td>`).join('')}${o.map(v=>`<td class="v">${v}</td>`).join('')}</tr>`;}).join('')}</tbody></table>`;
+}
+/* 名称を選ぶプルダウン（発展6） */
+const nameSel=path=>{const v=getPath(path);return `<span class="ddw nm${v===''?' blank':''}" data-v="${v===''?'？':v}"><select class="dd dd-name" data-act="sel" data-path="${path}" aria-label="回路の名称"><option value=""${v===''?' selected':''}>&nbsp;</option>${NAMES.map(n=>`<option value="${n}"${v===n?' selected':''}>${n}</option>`).join('')}</select></span>`;};
+
+/* 静的な回路図 */
+/* XOR・NAND・NOR のシミュレータ（A・Bを押すと出力がその場で変わる） */
+const SIMF={XOR:(a,b)=>a^b,NAND:(a,b)=>1-(a&b),NOR:(a,b)=>1-(a|b)};
+function simFig(type,path){
+  const st=getPath(path), a=st.a, b=st.b, o=SIMF[type](a,b), W=440,H=170;
+  const G=gsym(type,190,55,{ins:[a,b],out:o});
+  let s=wire(`M80,40 H150 V70 H186`,a)+wire(`M80,130 H150 V100 H186`,b)+G.svg+wire('M306,85 H385',o);
+  let ov2=ov(50,40,W,H,`<div class="io"><span class="lbl">A</span>${tog(path+'.a',a,'入力A')}</div>`)+ov(50,130,W,H,`<div class="io"><span class="lbl">B</span>${tog(path+'.b',b,'入力B')}</div>`)+ov(385,85,W,H,`<div class="obw"><div class="lbl obl">出力X</div>${outBox(o,'出力X')}</div>`);
+  return `<div class="fig" style="max-width:480px"><svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${s}</svg>${ov2}</div>`;
+}
+const figWrap=(vb,s,label,minw)=>`<div class="fig sfig" style="max-width:${minw||460}px"><svg viewBox="${vb}" role="img" aria-label="${label}">${s}</svg></div>`;
+function symFig(type){
+  const G=gsym(type,70,20);
+  let s=wire('M30,35 H66')+wire('M30,65 H66')+G.svg+wire('M186,50 H214');
+  s+=`<text class="t big" x="22" y="42" text-anchor="end">A</text><text class="t big" x="22" y="72" text-anchor="end">B</text><text class="t big" x="222" y="58">X</text>`;
+  return figWrap('0 0 250 100',s,`${type}回路の記号`,300);
+}
+function xorAoFig(){
+  const A1=gate('AND',300,25), A2=gate('AND',300,135), O=gate('OR',440,80), N1=gate('NOT',150,45), N2=gate('NOT',150,125);
+  let s='';
+  s+=wire(`M40,40 H${A1.inX}`)+wire(`M80,40 V150 H${N2.inX}`)+dot(80,40);
+  s+=wire(`M40,180 H${A2.inX}`)+wire(`M110,180 V156 A6,6 0 0 1 110,144 V70 H${N1.inX}`)+dot(110,180);
+  s+=wire(`M${N1.out[0]},70 H${A1.inX}`)+wire(`M${N2.out[0]},150 H${A2.inX}`);
+  s+=wire(`M${A1.out[0]},55 H410 V95 H${O.inX}`)+wire(`M${A2.out[0]},165 H410 V125 H${O.inX}`)+wire(`M${O.out[0]},110 H545`);
+  s+=A1.svg+A2.svg+O.svg+N1.svg+N2.svg;
+  s+=`<text class="t big" x="30" y="47" text-anchor="end">A</text><text class="t big" x="30" y="187" text-anchor="end">B</text><text class="t big" x="552" y="117">X</text>`;
+  return figWrap('0 0 580 210',s,'AND・OR・NOTで構成したXOR回路',560);
+}
+function nandTieFig(){
+  const G=gsym('NAND',90,20);
+  let s=wire('M36,50 H70')+wire('M70,35 V65')+wire('M70,35 H86')+wire('M70,65 H86')+G.svg+wire('M206,50 H232');
+  s+=dot(70,50); // 接続点の黒丸は最前面
+  s+=`<text class="t big" x="28" y="57" text-anchor="end">A</text><text class="t big" x="240" y="57">X</text>`;
+  return figWrap('0 0 270 100',s,'NAND回路の２つの入力をつないだ回路',300);
+}
+function nandAndFig(){
+  const G1=gsym('NAND',70,20), G2=gsym('NAND',240,20);
+  let s=wire('M36,35 H66')+wire('M36,65 H66')+G1.svg+wire('M186,50 H212')+wire('M212,35 V65')+wire('M212,35 H236')+wire('M212,65 H236')+G2.svg+wire('M356,50 H380');
+  s+=dot(212,50); // 接続点の黒丸は最前面
+  s+=`<text class="t big" x="28" y="42" text-anchor="end">A</text><text class="t big" x="28" y="72" text-anchor="end">B</text><text class="t big" x="388" y="57">X</text>`;
+  return figWrap('0 0 420 100',s,'NAND回路を２つつないだ回路',460);
+}
+function nandOrFig(){
+  const Ga=gsym('NAND',80,10), Gb=gsym('NAND',80,110), Gc=gsym('NAND',260,60);
+  let s=wire('M36,40 H60')+wire('M60,25 V55')+wire('M60,25 H76')+wire('M60,55 H76');
+  s+=wire('M36,140 H60')+wire('M60,125 V155')+wire('M60,125 H76')+wire('M60,155 H76');
+  s+=wire('M196,40 H226 V75 H256')+wire('M196,140 H226 V105 H256')+Ga.svg+Gb.svg+Gc.svg+wire('M376,90 H400');
+  s+=dot(60,40)+dot(60,140); // 接続点の黒丸は最前面
+  s+=`<text class="t big" x="28" y="47" text-anchor="end">A</text><text class="t big" x="28" y="147" text-anchor="end">B</text><text class="t big" x="408" y="97">X</text>`;
+  return figWrap('0 0 440 180',s,'NAND回路を３つ組み合わせた回路',460);
+}
+/* ============ 発展10：フリップフロップ回路 ============ */
+const FF_ROWS=[{a:0,b:0,C:'保持',D:'保持'},{a:0,b:1,C:'0',D:'1'},{a:1,b:0,C:'1',D:'0'},{a:1,b:1,C:'－',D:'－'}];
+const FF_EX=['１ビットの情報を保持する（記憶する）ことができる回路','２つの入力を足し算して、和と桁上げを出力する回路','入力の０と１を反転して出力する回路','２つの入力が異なるときだけ１を出力する回路'];
+const FF_EX_ORDER=[FF_EX[2],FF_EX[0],FF_EX[3],FF_EX[1]];
+/* 出力が落ち着くまで計算する（C＝NAND(NOT A, D)、D＝NAND(NOT B, C)）。A・Bが両方０なら直前の値が残る */
+function ffSettle(a,b,q){
+  let [c,d]=Array.isArray(q)?q:[1,0];
+  for(let k=0;k<10;k++){ const c2=1-((1-a)&d); const d2=1-((1-b)&c2); if(c2===c&&d2===d) break; c=c2; d=d2; }
+  return [c,d];
+}
+const ffSel=(path,label)=>{const v=getPath(path)||'';return `<span class="ddw nm${v===''?' blank':''}" data-v="${v===''?'？':v}"><select class="dd dd-ff" data-act="sel" data-path="${path}" aria-label="${label}"><option value=""${v===''?' selected':''}>&nbsp;</option>${['0','1','保持','－'].map(o=>`<option value="${o}"${v===o?' selected':''}>${o}</option>`).join('')}</select></span>`;};
+function ffFig(a,b,q){
+  const W=620,H=270, [c,d]=q, na=1-a, nb=1-b;
+  const N1=gate('NOT',110,45), N2=gate('NOT',110,195), G1=gsym('NAND',240,55), G2=gsym('NAND',240,175);
+  let s='';
+  s+=wire(`M78,70 H${N1.inX}`,a)+wire(`M78,220 H${N2.inX}`,b);
+  s+=wire(`M${N1.out[0]},70 H236`,na)+wire(`M${N2.out[0]},220 H236`,nb);
+  // NAND回路の出力を、たがいにもう一方の入力へ戻す（交差する線）
+  s+=wire('M396,85 V122 L220,168 V190 H236',c)+wire('M396,205 V168 L220,122 V100 H236',d);
+  s+=G1.svg+G2.svg+N1.svg+N2.svg;
+  s+=wire('M356,85 H470',c)+wire('M356,205 H470',d)+dot(396,85,c)+dot(396,205,d);
+  let o='';
+  o+=ov(48,70,W,H,`<div class="io"><span class="lbl">A</span>${tog('e10.a',a,'入力A')}</div>`);
+  o+=ov(48,220,W,H,`<div class="io"><span class="lbl">B</span>${tog('e10.b',b,'入力B')}</div>`);
+  o+=ov(500,85,W,H,`<div class="io">${outBox(c,'出力C')}<span class="lbl">C</span></div>`);
+  o+=ov(500,205,W,H,`<div class="io">${outBox(d,'出力D')}<span class="lbl">D</span></div>`);
+  return `<p class="hint-sc">図は左右にスクロールできます</p><div class="scroll"><div class="fig" style="max-width:640px">${`<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${s}</svg>`}${o}</div></div>`;
+}
+const sub3=(t)=>`<h3 class="sub3">${t}</h3>`;
+const pair=(a,b,w)=>`<div class="pair${w?' pw':''}"><div>${a}</div><div>${b}</div></div>`;
+
+const head=(no,title,sub)=>`<div class="ttl"><span class="no">${no}</span><h2>${title}${sub?`<span class="sub">${sub}</span>`:''}</h2></div>`;
+const howto=(items,cls)=>`<ul class="howto${cls?' '+cls:''}">${items.map(i=>`<li>${i}</li>`).join('')}</ul>`;
+
+/* ============ 各画面 ============ */
+function truthStep(key,type){
+  const st=S[key], rows=type==='NOT'?[[0],[1]]:T2;
+  const f=r=>type==='AND'?AND(r[0],r[1]):type==='OR'?OR(r[0],r[1]):NOT(r[0]);
+  const head2 = type==='NOT'?'<th>A</th>':'<th>A</th><th>B</th>';
+  const body = rows.map((r,i)=>`<tr>${r.map(x=>`<td class="v">${x}</td>`).join('')}<td>${seg(`${key}.ans.${i}`,st.ans[i],`${r.join('と')}のときの結果`)}</td><td class="m">${mark(st.ans[i]!==null,st.ans[i]===f(r))}</td></tr>`).join('');
+  return `<table class="tt"><thead><tr>${head2}<th>結果</th><th class="m" style="border:0;background:none"></th></tr></thead><tbody>${body}</tbody></table>`;
+}
+const flagsTruth=(key,type)=>{const rows=type==='NOT'?[[0],[1]]:T2;const f=r=>type==='AND'?AND(r[0],r[1]):type==='OR'?OR(r[0],r[1]):NOT(r[0]);return rows.map((r,i)=>S[key].ans[i]===f(r));};
+const cnt=a=>a.filter(Boolean).length;
+
+const screens=[
+{ id:'intro', rail:'0', name:'はじめに',
+  flags:()=>NAMES.map((n,i)=>S.intro[i]===n), cleared:()=>NAMES.every((n,i)=>S.intro[i]===n),
+  render:()=>`${head('','論理回路')}
+  <p>コンピュータは、<b>論理回路</b>と呼ばれる素子をつなぎ合わせることで計算をおこなっている。</p>
+  <p>ここでは論理回路のうち、AND回路・OR回路・NOT回路の３つについて学ぶ。左側から入力があると、右側から出力される。</p>
+  <p aria-hidden="true">&nbsp;</p>
+  ${howto(['下の３つの回路の名称を、プルダウンから選ぼう'])}
+  <div class="gates3">${['AND','OR','NOT'].map((t,i)=>`<figure>${symGate(t)}<figcaption>${nameDD(i)}${mark(S.intro[i]!=='',S.intro[i]===NAMES[i])}</figcaption></figure>`).join('')}</div>`},
+
+{ id:'s1', rail:'1', name:'Step1 AND回路',
+  flags:()=>flagsTruth('s1','AND'), cleared:()=>cnt(flagsTruth('s1','AND'))===4,
+  render:()=>`${head('1','AND回路の動作を確認しよう','AND（論理積）')}
+  ${howto(['A・Bの水色のマスを押して０と１を切り替え、結果を確かめる','表の「？」をプルダウンで０か１にする'])}
+  <div class="cols"><div>${gateFig('AND',S.s1.a,S.s1.b,'s1')}${lampFig('AND',S.s1.a,S.s1.b)}</div><div>${truthStep('s1','AND')}</div></div>`},
+
+{ id:'s2', rail:'2', name:'Step2 OR回路',
+  flags:()=>flagsTruth('s2','OR'), cleared:()=>cnt(flagsTruth('s2','OR'))===4,
+  render:()=>`${head('2','OR回路の動作を確認しよう','OR（論理和）')}
+  ${howto(['A・Bの水色のマスを押して０と１を切り替え、結果を確かめる','表の「？」をプルダウンで０か１にする'])}
+  <div class="cols"><div>${gateFig('OR',S.s2.a,S.s2.b,'s2')}${lampFig('OR',S.s2.a,S.s2.b)}</div><div>${truthStep('s2','OR')}</div></div>`},
+
+{ id:'s3', rail:'3', name:'Step3 NOT回路',
+  flags:()=>flagsTruth('s3','NOT'), cleared:()=>cnt(flagsTruth('s3','NOT'))===2,
+  render:()=>`${head('3','NOT回路の動作を確認しよう','NOT（否定）')}
+  ${howto(['Aの水色のマスを押して０と１を切り替え、結果を確かめる','表の「？」をプルダウンで０か１にする'])}
+  <div class="cols"><div>${gateFig('NOT',S.s3.a,0,'s3')}${lampFig('NOT',S.s3.a,0)}</div><div>${truthStep('s3','NOT')}</div></div>`},
+
+{ id:'s4', rail:'4', name:'Step4 練習問題1',
+  flags:()=>P4.map((p,i)=>S.s4[i]===p4ans(p)), cleared:()=>cnt(P4.map((p,i)=>S.s4[i]===p4ans(p)))===10,
+  render:()=>`${head('4','論理回路　練習問題１')}
+  ${howto(['それぞれの論理回路について、出力がどうなるか水色のプルダウンで答えよ'])}
+  <div class="probs">${P4.map((p,i)=>`<div class="prob"><span class="qn">(${i+1})</span>${miniGate(p[0],p.slice(1),false)}${seg(`s4.${i}`,S.s4[i],`問題${i+1}の出力`)}${mark(S.s4[i]!==null,S.s4[i]===p4ans(p))}</div>`).join('')}</div>`},
+
+{ id:'s5', rail:'5', name:'Step5 練習問題2',
+  flags:()=>P5.map((p,i)=>S.s5[i]===p5ans(p)), cleared:()=>cnt(P5.map((p,i)=>S.s5[i]===p5ans(p)))===8,
+  render:()=>`${head('5','論理回路　練習問題２')}
+  ${howto(['それぞれの論理回路について、出力がどうなるか水色のプルダウンで答えよ','２つの回路がつながっているときは、左から順に考える'])}
+  <div class="probs two">${P5.map((p,i)=>`<div class="prob"><span class="qn">(${i+1})</span>${miniGate(p[0],p.slice(1),true)}${seg(`s5.${i}`,S.s5[i],`問題${i+1}の出力`)}${mark(S.s5[i]!==null,S.s5[i]===p5ans(p))}</div>`).join('')}</div>`},
+
+{ id:'s6', rail:'6', name:'Step6 半加算器',
+  flags:()=>T2.map((r,i)=>{const v=ha(r[0],r[1]);return S.s6.c[i]===v.c&&S.s6.s[i]===v.s;}),
+  cleared:()=>cnt(screens[6].flags())===4,
+  render:()=>{const st=S.s6;return `${head('6','半加算器の動作を見てみよう','半加算器')}
+  ${howto(['半加算器は、１桁の二進数どうしの足し算をする回路。その桁の答えをS（結果）、繰り上がりをC（桁上げ）として出力する','A・Bの水色のマスを押して０と１を切り替え、結果を確かめる','下の表の「？」をプルダウンで０か１にする'],'ha')}
+  ${haFig('live',st.a,st.b,'s6')}
+  <table class="tt" style="margin-top:16px"><thead><tr><th>A</th><th>B</th><th>C<br>（桁上げ）</th><th>S<br>（結果）</th><th class="m" style="border:0;background:none"></th></tr></thead><tbody>
+  ${T2.map((r,i)=>{const v=ha(r[0],r[1]);const f=st.c[i]!==null&&st.s[i]!==null;return `<tr><td class="v">${r[0]}</td><td class="v">${r[1]}</td><td>${seg(`s6.c.${i}`,st.c[i],'C')}</td><td>${seg(`s6.s.${i}`,st.s[i],'S')}</td><td class="m">${mark(f,st.c[i]===v.c&&st.s[i]===v.s)}</td></tr>`;}).join('')}
+  </tbody></table>`;}},
+
+...[['s7','7',1,0,'１'],['s8','8',1,1,'２']].map(([k,no,a,b,n])=>({
+  id:k, rail:no, name:`Step${no} 半加算器の確認${n}`,
+  flags:()=>[ (()=>{const v=ha(a,b),st=S[k];return ['or','and','not','s','c'].every(q=>st[q]===v[q]);})() ],
+  cleared:()=>{const v=ha(a,b),st=S[k];return ['or','and','not','s','c'].every(q=>st[q]===v[q]);},
+  status:()=>{const st=S[k];const filled=['or','and','not','s','c'].filter(q=>st[q]!==null).length;if(filled<5)return `水色のマス ${filled} / 5 入力済み`;return screens.find(s=>s.id===k).cleared()?'クリア！　正しい結果になった':'まちがいがあります。もう一度確かめよう';},
+  render:()=>{const st=S[k];const filled=['or','and','not','s','c'].every(q=>st[q]!==null);const ok=screens.find(s=>s.id===k).cleared();return `${head(no,`半加算器の動作を確認しよう${n}`,'半加算器')}
+  ${howto([`A＝${a}、B＝${b} にあわせて、水色のプルダウンで０か１を選び、正しい結果になるようにする`],'ha')}
+  ${haFig('quiz',a,b,k)}`;}
+})),
+
+{ id:'s9', rail:'9', name:'Step9 半加算器と二進法',
+  flags:()=>[S.s9.every((v,i)=>s9ok(v,i))], cleared:()=>S.s9.every((v,i)=>s9ok(v,i)),
+  status:()=>{const c=S.s9.filter((v,i)=>s9ok(v,i)).length;return c===4?'クリア！':`正解 ${c} / 4`;},
+  render:()=>{const ok=S.s9.every((v,i)=>s9ok(v,i));return `${head('9','１桁の二進法の足し算の表を作る','半加算器と二進法')}
+  ${howto(['「答え」の水色のマスに、二進法で計算した答えを入力する（キーボードで入力）'])}
+  <div class="tblgrid">
+  <table class="tt"><thead><tr><th>A</th><th>B</th><th>答え</th><th>意味</th><th class="m" style="border:0;background:none"></th></tr></thead><tbody>
+  ${T2.map((r,i)=>`<tr><td class="v">${r[0]}</td><td class="v">${r[1]}</td><td><input class="txt" id="s9-${i}" data-act="text" data-path="s9.${i}" inputmode="numeric" autocomplete="off" maxlength="3" placeholder="？" value="${S.s9[i]}" aria-label="${r[0]}＋${r[1]}の答え"></td><td>${['０＋０','０＋１','１＋０','１＋１'][i]}</td><td class="m" id="s9m-${i}">${mark(norm(S.s9[i])!=='',s9ok(S.s9[i],i))}</td></tr>`).join('')}
+  </tbody></table>
+  <div><p style="text-align:center;margin:0 0 4px"><b>Step6で作った半加算器の真理値表</b></p>
+  <table class="tt"><thead><tr><th>A</th><th>B</th><th>C</th><th>S</th></tr></thead><tbody>${T2.map(r=>{const v=ha(r[0],r[1]);return `<tr><td class="v">${r[0]}</td><td class="v">${r[1]}</td><td class="v">${v.c}</td><td class="v">${v.s}</td></tr>`;}).join('')}</tbody></table></div>
+  </div>
+  <div id="s9msg">${ok?'<div class="msg good">１桁の二進法の足し算は、半加算器でできることがわかる（C・Sを並べると答えになる）</div>':''}</div>`;}},
+
+{ id:'s10', rail:'10', name:'Step10 まとめ',
+  flags:()=>[s10clear()], cleared:()=>s10clear(),
+  status:()=>s10clear()?'クリア！　発展課題に挑戦しよう':`正解 ${[0,1,2,3].filter(s10ok).length} / 4`,
+  render:()=>{const items=[['AND','AND回路','A AND B',[0]],['OR','OR回路','A OR B',[1]],['NOT','NOT回路','NOT A',[2,3]]];return `${head('10','論理回路　まとめ')}
+  ${howto(['基本的な論理回路は　①AND回路　②OR回路　③NOT回路　の３種類','左側の入力に対し右から出力される','それぞれの回路の説明を選んで答える（③は説明を２つ選ぶ）'])}
+  ${items.map(([t,nm,ex,idx],i)=>`<div class="sumrow"><div><h3>${'①②③'[i]} ${nm}</h3><div class="expr">${ex}</div>${symGate(t)}</div><div>${idx.map((k,n)=>`<div class="s10sel"><label class="note" for="s10-${k}">説明を選ぶ${idx.length>1?`（${n+1}つ目）`:''}</label><br>${sel10(k)} ${mark(!!S.s10[k],s10ok(k))}</div>`).join('')}</div></div>`).join('')}`;}},
+
+{ id:'e1', rail:'A', name:'発展1 全加算器',
+  flags:()=>[SC('e1').cleared()], cleared:()=>E1.every((r,i)=>S.e1.c[i]===r.C&&S.e1.s[i]===r.S),
+  status:()=>{const c=E1.filter((r,i)=>S.e1.c[i]===r.C&&S.e1.s[i]===r.S).length;return c===8?'クリア！　発展2へ進もう':`正解 ${c} / 8 行`;},
+  render:()=>`${head('A','全加算器','発展1')}
+  <p>半加算器は下の桁からの繰り上がりが処理できないため、繰り上がりができる加算器を考える。これを<b>全加算器</b>といい、２個の半加算器とOR回路を利用し、以下のようになっている。</p>
+  <p aria-hidden="true">&nbsp;</p>
+  <div class="viewsw"><button type="button" class="btn" data-act="e1view">表示を切り替える</button><span>いまの表示：<b>${E2VIEW_LABEL[e1View]}</b></span></div>
+  ${fullAdderFig()}
+  ${howto(['以下の真理値表を埋めよ（Xは下の桁からの繰り上がり）','水色のマスは押すたびに「？→０→１→０…」と変わる'])}
+  <table class="tt sm"><thead><tr><th>A</th><th>B</th><th>X</th><th>C</th><th>S</th><th class="m" style="border:0;background:none"></th></tr></thead><tbody>
+  ${E1.map((r,i)=>`<tr><td class="v">${r.a}</td><td class="v">${r.b}</td><td class="v">${r.x}</td><td>${cyc(`e1.c.${i}`,S.e1.c[i],'C')}</td><td>${cyc(`e1.s.${i}`,S.e1.s[i],'S')}</td><td class="m">${mark(S.e1.c[i]!==null&&S.e1.s[i]!==null,S.e1.c[i]===r.C&&S.e1.s[i]===r.S)}</td></tr>`).join('')}
+  </tbody></table>`},
+
+{ id:'e2', rail:'B', name:'発展2 ２桁の足し算',
+  flags:()=>[SC('e2').cleared()], cleared:()=>E2.every((r,i)=>S.e2.c[i]===r.C&&S.e2.s2[i]===r.S2&&S.e2.s1[i]===r.S1),
+  status:()=>{const c=E2.filter((r,i)=>S.e2.c[i]===r.C&&S.e2.s2[i]===r.S2&&S.e2.s1[i]===r.S1).length;return c===16?'クリア！　発展3へ進もう':`正解 ${c} / 16 行`;},
+  render:()=>{const tb=(from)=>`<table class="tt sm"><thead><tr><th>A₂</th><th>A₁</th><th>B₂</th><th>B₁</th><th>C</th><th>S₂</th><th>S₁</th><th class="m" style="border:0;background:none"></th></tr></thead><tbody>${E2.slice(from,from+8).map((r,j)=>{const i=from+j,st=S.e2,f=st.c[i]!==null&&st.s2[i]!==null&&st.s1[i]!==null;return `<tr><td class="v">${r.a2}</td><td class="v">${r.a1}</td><td class="v">${r.b2}</td><td class="v">${r.b1}</td><td>${cyc(`e2.c.${i}`,st.c[i],'C')}</td><td>${cyc(`e2.s2.${i}`,st.s2[i],'S2')}</td><td>${cyc(`e2.s1.${i}`,st.s1[i],'S1')}</td><td class="m">${mark(f,st.c[i]===r.C&&st.s2[i]===r.S2&&st.s1[i]===r.S1)}</td></tr>`;}).join('')}</tbody></table>`;return `${head('B','２桁の二進法の足し算','発展2')}
+  <p>半加算器と全加算器を組み合わせると、２桁の二進法の計算が可能になる。二進法２桁の数「A₂A₁」と「B₂B₁」を加算すると「S₂S₁」と繰り上がり「C」が出力される。</p>
+  <p aria-hidden="true">&nbsp;</p>
+  <div class="viewsw"><button type="button" class="btn" data-act="e2view">表示を切り替える</button><span>いまの表示：<b>${E2VIEW_LABEL[e2View]}</b></span></div>
+  ${twoBitFig()}
+  ${howto(['以下の真理値表を埋めよ','水色のマスは押すたびに「？→０→１→０…」と変わる'])}
+  <div class="tblgrid">${tb(0)}${tb(8)}</div>`;}},
+
+{ id:'e3', rail:'C', name:'発展3 XOR回路',
+  flags:()=>[SC('e3').cleared()], cleared:()=>ttOk('e3.x1',2,([a,b])=>a^b)&&ttOk('e3.x2',2,([a,b])=>a^b),
+  status:()=>SC('e3').cleared()?'クリア！　発展4へ進もう':'',
+  render:()=>`${head('C','XOR（排他的論理和）','発展3　エクスクルーシブ・オア')}
+  <p>論理回路の基本は AND・OR・NOT だが、これ以外に <b>XOR</b> というものがある。XOR は、２つの入力が異なっている場合は１を出力し、入力が同じ場合は０を出力する。</p>
+  ${sub3('① XOR回路')}${howto(['A・Bの水色のマスを押して０と１を切り替え、結果を確かめる','次の論理回路の真理値表を完成させよう'])}
+  ${pair(simFig('XOR','e3.sim'),ttCyc('e3.x1',['A','B'],'X'))}
+  ${sub3('② AND・OR・NOTで構成したXOR回路')}
+  <p>XOR回路は、AND・OR・NOT の組み合わせで作ることもできる。</p>${howto(['次の論理回路の真理値表を完成させよう'])}
+  ${pair(xorAoFig(),ttCyc('e3.x2',['A','B'],'X'))}`},
+
+{ id:'e4', rail:'D', name:'発展4 NAND回路',
+  flags:()=>[SC('e4').cleared()], cleared:()=>ttOk('e4.t',2,([a,b])=>1-(a&b))&&bOk('e4.b'),
+  status:()=>SC('e4').cleared()?'クリア！　発展5へ進もう':'',
+  render:()=>`${head('D','NAND（否定論理積）','発展4　ナンド')}
+  <p>よく使われる論理回路に <b>NAND</b> がある。NAND は、AND の出力結果を否定したものになっている。</p>
+  ${sub3('① NAND回路の真理値表')}${howto(['A・Bの水色のマスを押して０と１を切り替え、結果を確かめる','次の論理回路の真理値表を完成させよう'])}
+  ${pair(simFig('NAND','e4.sim'),ttCyc('e4.t',['A','B'],'X'))}
+  ${sub3('② NAND回路を AND と NOT で作ろう')}${howto(BUILD_HOWTO)}
+  ${builder('e4.b')}`},
+
+{ id:'e5', rail:'E', name:'発展5 NOR回路',
+  flags:()=>[SC('e5').cleared()], cleared:()=>ttOk('e5.t',2,([a,b])=>1-(a|b))&&bOk('e5.b'),
+  status:()=>SC('e5').cleared()?'クリア！　発展6へ進もう':'',
+  render:()=>`${head('E','NOR（否定論理和）','発展5　ノア')}
+  <p>よく使われる論理回路に <b>NOR</b> がある。NOR は、OR の出力結果を否定したものになっている。</p>
+  ${sub3('① NOR回路の真理値表')}${howto(['A・Bの水色のマスを押して０と１を切り替え、結果を確かめる','次の論理回路の真理値表を完成させよう'])}
+  ${pair(simFig('NOR','e5.sim'),ttCyc('e5.t',['A','B'],'X'))}
+  ${sub3('② NOR回路を OR と NOT で作ろう')}${howto(BUILD_HOWTO)}
+  ${builder('e5.b')}`},
+
+{ id:'e6', rail:'F', name:'発展6 NAND論理の完全性',
+  flags:()=>[SC('e6').cleared()],
+  cleared:()=>ttOk('e6.t1',1,([a])=>1-a)&&S.e6.g1==='NOT回路'&&ttOk('e6.t2',2,([a,b])=>a&b)&&S.e6.g2==='AND回路'&&ttOk('e6.t3',2,([a,b])=>a|b)&&S.e6.g3==='OR回路',
+  status:()=>SC('e6').cleared()?'クリア！　発展7へ進もう':'',
+  render:()=>`${head('F','NAND論理の完全性','発展6')}
+  <p>実は NAND（または NOR）だけで、あらゆる論理回路を作ることができる。このように NAND（または NOR）だけで構成できることを、<b>NAND論理の完全性</b>（または <b>NOR論理の完全性</b>）という。</p>
+  ${howto(['次の３つの論理回路の真理値表を完成させよう','それぞれ、AND・OR・NOTのうちどの回路を表しているかを選ぼう'])}
+  ${sub3('①')}${pair(nandTieFig()+`<p class="whichg">この回路は ${nameSel('e6.g1')} を表している。</p>`,ttCyc('e6.t1',['A'],'X'))}
+  <p aria-hidden="true">&nbsp;</p>
+  ${sub3('②')}${pair(nandAndFig()+`<p class="whichg">この回路は ${nameSel('e6.g2')} を表している。</p>`,ttCyc('e6.t2',['A','B'],'X'))}
+  <p aria-hidden="true">&nbsp;</p>
+  ${sub3('③')}${pair(nandOrFig()+`<p class="whichg">この回路は ${nameSel('e6.g3')} を表している。</p>`,ttCyc('e6.t3',['A','B'],'X'))}`},
+
+{ id:'e7', rail:'G', name:'発展7 NORだけで作る',
+  flags:()=>[SC('e7').cleared()], cleared:()=>bOk('e7.not')&&bOk('e7.and')&&bOk('e7.or'),
+  status:()=>SC('e7').cleared()?'クリア！　発展8へ進もう':'',
+  render:()=>`${head('G','NORだけで回路を作ろう','発展7　NOR論理の完全性')}
+  <p>NOR回路だけを使って、NOT・AND・OR の各回路を作ってみよう。作りたい回路の真理値表と同じ出力になれば完成。</p>
+  ${howto(BUILD_HOWTO)}
+  ${sub3('① NOT回路を NOR だけで作ろう')}${pair(builder('e7.not'),ttTarget(['A'],['X'],([a])=>[1-a]),1)}
+  ${sub3('② AND回路を NOR だけで作ろう')}${pair(builder('e7.and'),ttTarget(['A','B'],['X'],([a,b])=>[a&b]),1)}
+  ${sub3('③ OR回路を NOR だけで作ろう')}${pair(builder('e7.or'),ttTarget(['A','B'],['X'],([a,b])=>[a|b]),1)}`},
+
+{ id:'e8', rail:'H', name:'発展8 XORとANDで半加算器',
+  flags:()=>[SC('e8').cleared()], cleared:()=>bOk('e8.b'),
+  status:()=>SC('e8').cleared()?'クリア！　発展9へ進もう':'',
+  render:()=>`${head('H','XOR と AND で半加算器を作ろう','発展8')}
+  <p>半加算器の真理値表をもう一度見てみると、入力 A・B に対して、S は <b>XOR</b>、C は <b>AND</b> になっていることがわかる。したがって、半加算器は XOR と AND を使って書くこともできる。</p>
+  ${howto(BUILD_HOWTO)}
+  ${pair(builder('e8.b'),ttTarget(['A','B'],['C','S'],([a,b])=>[a&b,a^b]),1)}`},
+
+{ id:'e9', rail:'I', name:'発展9 ４桁の加算器',
+  flags:()=>[SC('e9').cleared()], cleared:()=>bOk('e9.b'),
+  status:()=>SC('e9').cleared()?'クリア！　発展10へ進もう':'',
+  render:()=>`${head('I','４桁の加算器を作ろう','発展9')}
+  <p>下の１桁に半加算器、その上の桁に全加算器をつないでいくと、何桁の加算器でも作ることができる。半加算器と全加算器の記号を使って、二進法４桁の加算器を作ろう。</p>
+  <div class="addcol"><span></span><span>A₃</span><span>A₂</span><span>A₁</span><span>A₀</span><span>＋</span><span>B₃</span><span>B₂</span><span>B₁</span><span>B₀</span><span class="ul">C</span><span class="ul">S₃</span><span class="ul">S₂</span><span class="ul">S₁</span><span class="ul">S₀</span></div>
+  ${howto(BUILD_HOWTO.concat(['入力の数字を切り替えて、足し算が正しくできているか確かめよう（例：A＝0011、B＝0101 なら 01000）']))}
+  ${builder('e9.b')}`},
+
+{ id:'e10', rail:'J', name:'発展10 フリップフロップ回路',
+  flags:()=>[SC('e10').cleared()],
+  cleared:()=>FF_ROWS.every((r,i)=>S.e10.c[i]===r.C&&S.e10.d[i]===r.D)&&S.e10.ex===FF_EX[0],
+  status:()=>SC('e10').cleared()?'発展課題はすべて終了です！':'',
+  render:()=>{ const st=S.e10; st.q=ffSettle(st.a,st.b,st.q); save();
+  return `${head('J','フリップフロップ回路','発展10')}
+  <p>下の回路は、NOT回路とNAND回路を組み合わせた<b>フリップフロップ回路</b>である。２つのNAND回路の出力が、たがいにもう一方の入力に戻っているのが特徴。</p>
+  ${sub3('① 回路を動かしてみよう')}
+  ${howto(['A・Bの水色のマスを押して０と１を切り替え、出力C・Dがどう変わるか確かめよう','A＝1 や B＝1 にしたあと、A・Bを両方０に戻すと、C・Dはどうなるかに注目しよう'])}
+  ${ffFig(st.a,st.b,st.q)}
+  <p class="note" style="min-height:1.7em">${st.a===1&&st.b===1?'A・Bを両方１にすると、C・Dがどちらも１になり、「CとDが反対の値になる」という関係がくずれる。そのため、この入力は使わない。':''}</p>
+  ${sub3('② 真理値表を完成させよう')}
+  ${howto(['出力が直前の状態のまま変わらないときは「保持」、使わない入力のときは「－」を選ぶ'])}
+  <table class="tt ff"><thead><tr><th>入力A</th><th>入力B</th><th>出力C</th><th>出力D</th></tr></thead><tbody>
+  ${FF_ROWS.map((r,i)=>`<tr><td class="v">${r.a}</td><td class="v">${r.b}</td><td>${ffSel(`e10.c.${i}`,'出力C')}</td><td>${ffSel(`e10.d.${i}`,'出力D')}</td></tr>`).join('')}
+  </tbody></table>
+  ${sub3('③ フリップフロップ回路とは何か')}
+  ${howto(['フリップフロップ回路の説明として正しいものを選ぼう'])}
+  <p><select class="exsel" data-act="sel" data-path="e10.ex" aria-label="フリップフロップ回路の説明">${['選択してください',...FF_EX_ORDER].map((o,j)=>`<option value="${j===0?'':o}"${(S.e10.ex===o||(j===0&&!S.e10.ex))?' selected':''}>${o}</option>`).join('')}</select></p>`;}},
+
+];
+
+const SC=id=>screens.find(s=>s.id===id), IDX=id=>screens.findIndex(s=>s.id===id);
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+
+/* ============ トップ画面 ============ */
+let showTop = true;
+function renderTop(){
+  document.body.classList.toggle('is-top',showTop);
+  if(!showTop) return;
+}
+
+/* ============ 画面の切り替え ============ */
+/* 検証用：false のあいだは、進捗バーからどのページにも移動できる（true に戻すと、前のステップをクリアしないと進めなくなる） */
+const LOCK_STEPS = false;
+/* ○×を表示しないステップ（すべて正解でクリア） */
+const NOMARK = new Set(['s4','s5','s6','s7','s8','s9','s10','e1','e2','e3','e4','e5','e6','e7','e8','e9','e10']);
+function accessible(i){
+  if(!LOCK_STEPS||unlockAll||i===0) return true;
+  return accessible(i-1)&&screens[i-1].cleared();
+}
+function defaultStatus(sc){
+  const f=sc.flags(); const c=cnt(f);
+  return sc.cleared()?'クリア！　次へ進もう':`正解 ${c} / ${f.length}`;
+}
+let prevCleared=null;
+function render(){
+  renderTop(); if(showTop) return;
+  if(!accessible(S.cur)) S.cur=0;
+  const sc=screens[S.cur];
+  const act=document.activeElement, fid=act&&act.id, sel=act&&act.selectionStart;
+  const fpath=act&&act.dataset&&act.dataset.path, fval=act&&act.dataset&&act.dataset.val;
+  hideMarks=NOMARK.has(sc.id);
+  const mainEl=document.getElementById('main'); mainEl.classList.toggle('nomark',hideMarks);
+  mainEl.innerHTML=sc.render();
+  // レール
+  let r='';
+  screens.forEach((s,i)=>{
+    if(i>0) r+=`<span class="seg-w${screens[i-1].cleared()?' lit':''}"></span>`;
+    r+=`<button type="button" class="node${/^e\d+$/.test(s.id)?' sq':''}${s.cleared()?' done':''}${i===S.cur?' cur':''}" data-act="go" data-to="${i}" ${accessible(i)?'':'disabled'} aria-label="${s.name}${s.cleared()?'（クリア）':''}" title="${s.name}" ${i===S.cur?'aria-current="step"':''}>${s.rail}</button>`;
+  });
+  const rail=document.getElementById('rail'); rail.innerHTML=r;
+  const curNode=rail.querySelector('.cur'); if(curNode&&curNode.scrollIntoView&&!render.noScroll){ try{curNode.scrollIntoView({block:'nearest',inline:'center'});}catch(e){} }
+  // 下のバー
+  const cl=sc.cleared();
+  const st=document.getElementById('status');
+  /* ○×を出さないページ：クリア前は「すべて正解するとクリアになるよ！」、クリア後は「クリア！　次へ進もう」（最後のページだけ終了の表示） */
+  st.textContent = hideMarks
+    ? (sc.cleared() ? (S.cur===screens.length-1 ? '発展課題はすべて終了です！' : 'クリア！　次へ進もう') : 'すべて正解するとクリアになるよ！')
+    : (sc.status?sc.status():defaultStatus(sc));
+  st.className='status'+(cl?' clear':'');
+  document.getElementById('back').disabled=false;
+  const nx=document.getElementById('nexts'); let h='';
+  const justNow = prevCleared===false && cl;
+  const b=(to,label,primary)=>`<button type="button" class="btn${primary?' primary':''}${justNow&&primary?' ready':''}" data-act="go" data-to="${to}" ${(cl||unlockAll)?'':'disabled'}>${label}</button>`;
+  const nxt=screens[S.cur+1];
+  if(!nxt){ h=''; }
+  else if(sc.id==='s10'){ h=b(S.cur+1,'発展課題へ',true); }
+  else { h=b(S.cur+1,'次へ進む',true); }
+  if(justNow) showClear();
+  nx.innerHTML=h;
+  prevCleared=cl;
+  // フォーカスを戻す
+  let el=null;
+  if(fid) el=document.getElementById(fid);
+  if(!el&&fpath) el=document.querySelector(`[data-path="${fpath}"]${fval!==undefined?`[data-val="${fval}"]`:''}`);
+  if(el&&el!==document.body){ try{el.focus({preventScroll:true}); if(sel!=null&&el.setSelectionRange) el.setSelectionRange(sel,sel);}catch(e){} }
+  render.noScroll=false;
+}
+function getPath(p){return p.split('.').reduce((o,k)=>o[k],S);}
+function setPath(p,v){const ks=p.split('.');const last=ks.pop();const o=ks.reduce((o,k)=>o[k],S);o[last]=v;}
+/* クリア！のダイアログを数秒表示する */
+let clearTimer=null;
+function showClear(){
+  const el=document.getElementById('cleartoast'); if(!el) return;
+  // 白い枠（.sheet）の上下・左右中央に置く。枠が画面より長いときは、見えている部分の中央
+  const sh=document.getElementById('main'), bar=document.querySelector('.bar');
+  if(sh){
+    const r=sh.getBoundingClientRect(), bottomLimit=window.innerHeight-(bar?bar.offsetHeight:0);
+    const top=Math.max(r.top,0), bot=Math.min(r.bottom,bottomLimit);
+    el.style.left=(r.left+r.width/2)+'px';
+    el.style.top=(bot>top?(top+bot)/2:window.innerHeight/2)+'px';
+  }
+  el.classList.remove('show'); void el.offsetWidth;
+  el.classList.add('show'); clearTimeout(clearTimer);
+  /* 表示時間は全体で約1.5秒（0.25秒で現れる → 表示 → 1.25秒後から0.25秒で消える） */
+  clearTimer=setTimeout(()=>el.classList.remove('show'),1250);
+}
+/* 画面を移るボタンが押されたら、クリア！の表示をすぐに消す（消える動きもなし） */
+function hideClear(){
+  const el=document.getElementById('cleartoast'); if(!el) return;
+  clearTimeout(clearTimer);
+  el.style.transition='none'; el.classList.remove('show'); void el.offsetWidth; el.style.transition='';
+}
+function go(to){ hideClear(); S.cur=to; prevCleared=null; save(); render(); window.scrollTo({top:0}); }
+
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-act]'); if(!t||t.disabled) return;
+  const a=t.dataset.act, p=t.dataset.path;
+  if(a==='go'){ go(+t.dataset.to); return; }
+  if(a==='e1view'){ e1View=(e1View+1)%3; render.noScroll=true; render(); return; }
+  if(a==='e2view'){ e2View=(e2View+1)%3; render.noScroll=true; render(); return; }
+  if(a==='start'){ showTop=false; prevCleared=null; render(); window.scrollTo({top:0}); return; }
+  if(a==='tog'){ setPath(p,getPath(p)===1?0:1); }
+  else if(a==='set'){ setPath(p,+t.dataset.val); }
+  else if(a==='cyc'){ const v=getPath(p); setPath(p,v===null?0:v===0?1:0); }
+  else return;
+  save(); render.noScroll=true; render();
+});
+document.addEventListener('keydown',e=>{
+  const t=e.target; if(!t.dataset||!t.dataset.path) return;
+  const a=t.dataset.act;
+  if((a==='cyc'||a==='tog'||a==='set')&&(e.key==='0'||e.key==='1')){ e.preventDefault(); setPath(t.dataset.path,+e.key); save(); render.noScroll=true; render(); }
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset&&t.dataset.act==='ddsel'){ setPath(t.dataset.path,t.value===''?null:+t.value); save(); render.noScroll=true; render(); return; }
+  if(t.dataset&&t.dataset.act==='sel'){ setPath(t.dataset.path,t.value); save(); render.noScroll=true; render(); }
+});
+document.addEventListener('input',e=>{
+  const t=e.target; if(!(t.dataset&&t.dataset.act==='text')) return;
+  setPath(t.dataset.path,t.value); save();
+  if(t.dataset.path.startsWith('s9')){ render.noScroll=true; render(); }
+});
+document.getElementById('back').addEventListener('click',()=>{ if(S.cur>0) go(S.cur-1); else { hideClear(); showTop=true; render(); window.scrollTo({top:0}); } });
+const rs=document.getElementById('reset'); let armed=false;
+rs.addEventListener('click',()=>{
+  if(!armed){ armed=true; rs.textContent='本当に消去しますか？（もう一度押すと消去）'; setTimeout(()=>{armed=false;rs.textContent='記録を消して最初からやり直す';},4000); return; }
+  hideClear(); S=initState(); showTop=true; armed=false; rs.textContent='記録を消して最初からやり直す'; save(); prevCleared=null; render(); window.scrollTo({top:0});
+});
+/* 先生用：タイトルをShiftキーを押しながらクリックすると、全ステップを自由に行き来できる */
+document.getElementById('apptitle').addEventListener('click',e=>{ if(!e.shiftKey){ hideClear(); showTop=true; render(); window.scrollTo({top:0}); return; } if(e.shiftKey){ unlockAll=!unlockAll; document.getElementById('apptitle').title=unlockAll?'全ステップ開放中（先生用）':'トップ画面へ'; render(); } });
+render();
+</script>
+</body>
+</html>
