@@ -344,7 +344,9 @@ select.dd-ff{min-width:5.2rem;font-family:inherit;font-size:1.05rem}
 .dsubmit .who input.nb{width:6rem}
 .subsum{font-size:1rem;padding:8px 12px;border-radius:8px;background:color-mix(in srgb,var(--ok) 8%,transparent);margin-bottom:6px}
 /* クラウド保存 */
-.saveid{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:12px 0 4px}
+/* 保存IDの見出しを1行目に、保存IDをその下に表示する */
+.saveid-l{font-weight:700;color:var(--muted);font-size:.9rem}
+.saveid{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 4px}
 .saveid b{font-family:"BIZ UDGothic",monospace;font-size:1.8rem;letter-spacing:.12em;padding:2px 12px;border:2px solid var(--ok);border-radius:8px;color:var(--ok);background:var(--paper)}
 .saveurl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
 .saveurl input{flex:1 1 260px;min-width:0;border:2px solid var(--line);border-radius:8px;padding:6px 10px;font-family:"BIZ UDGothic",monospace;font-size:.85rem;background:var(--paper);color:var(--ink)}
@@ -1085,7 +1087,7 @@ async function cloudSave(){
   cloud={busy:true,msg:'保存しています…',err:false,copied:false}; rerender();
   try{
     const F=await fbInit();
-    const o=JSON.parse(JSON.stringify(S)); delete o.saveId; delete o.unsaved; delete o.savedAt;
+    const o=JSON.parse(JSON.stringify(S)); delete o.saveId; delete o.unsaved; delete o.savedAt; delete o.num; delete o.name;
     const data=JSON.stringify(o);
     if(data.length>=30000) throw {code:'too-large'};
     let id=SAVE_ID_RE.test(S.saveId||'')?S.saveId:'';
@@ -1176,11 +1178,9 @@ function renderDash(){
     <label class="rlab" for="ref-hard">難しかったこと・もっと知りたいこと</label><textarea id="ref-hard" class="reftxt" data-act="text" data-path="ref.hard" rows="3" maxlength="300">${escapeHtml(S.ref.hard)}</textarea>
   </section>
   <section class="dbox dsubmit"><h3 class="dph">保存</h3>
-    <div class="who"><label>番号 <input class="nb" id="sub-num" data-act="text" data-path="num" value="${escapeHtml(S.num)}" inputmode="numeric" autocomplete="off"></label><label>氏名 <input id="sub-name" data-act="text" data-path="name" value="${escapeHtml(S.name)}" autocomplete="off"></label></div>
-    <div class="subsum">達成率 <b>${total}%</b>（基本 ${pb}%・発展 ${pa}%）／ クリア ${T.pages.filter(x=>x.cleared()).length} / ${T.pages.length} ページ</div>
     <p class="note">「保存する」を押すと保存IDが発行され、このページのURLの最後に付きます。URL（または保存ID）をメモしておくと、次回そのURLを開いて続きから取り組めます。</p>
     <button type="button" class="btn primary" data-act="cloudsave"${cloud.busy?' disabled':''}>${S.saveId?'保存する（上書き）':'保存する'}</button><span class="cmsg ${cloud.err?'ng':'ok'}" role="status">${escapeHtml(cloud.msg)}</span>
-    ${S.saveId?`<div class="saveid"><span class="note">保存ID</span><b>${S.saveId}</b>${S.savedAt?`<span class="note">最後に保存：${S.savedAt}</span>`:''}</div>
+    ${S.saveId?`<p aria-hidden="true">&nbsp;</p><div class="saveid-l">保存ID</div><div class="saveid"><b>${S.saveId}</b>${S.savedAt?`<span class="note">最後に保存：${S.savedAt}</span>`:''}</div>
     <div class="saveurl"><input id="saveurl" readonly value="${escapeHtml(saveIdUrl(S.saveId))}" aria-label="続きから取り組むためのURL"><button type="button" class="btn sm" data-act="copyurl">URLをコピー</button>${cloud.copied?'<span class="note">コピーしました</span>':''}</div>
     ${S.unsaved?'<p class="unsaved">保存したあとに取り組んだ内容があります。もう一度「保存する」を押そう。</p>':''}`:''}
     <details class="loadbox"><summary>保存IDを入力して、続きから取り組む</summary><div class="row"><input id="loadid" maxlength="8" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="保存ID（8文字）" aria-label="保存ID"><button type="button" class="btn sm" data-act="loadid">読み込む</button></div></details>
